@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Login Admin</title>
+  </head>
+  <body>
+    <h2>🔐 Login Admin</h2>
+
+    <form onsubmit="login(event)">
+      <input id="username" placeholder="Username" required />
+      <input id="password" type="password" placeholder="Password" required />
+      <button>Login</button>
+    </form>
+
+    <p id="msg"></p>
+
+    <script>
+      async function login(e) {
+        e.preventDefault();
+
+        const res = await fetch("/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username: username.value,
+            password: password.value,
+          }),
+        });
+
+        if (res.ok) {
+          window.location.href = "/";
+        } else {
+          msg.innerText = "❌ Login gagal";
+        }
+      }
+    </script>
+  </body>
+</html>

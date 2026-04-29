@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Logs</title>
+  </head>
+  <body>
+    <h2>📊 Logs</h2>
+    <button onclick="loadLogs()">Refresh</button>
+    <hr />
+    <table border="1">
+      <thead>
+        <tr>
+          <th>Waktu</th>
+          <th>User</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody id="logs"></tbody>
+    </table>
+
+    <script>
+      async function loadLogs() {
+        const res = await fetch("/logs");
+        const data = await res.json();
+
+        const tbody = document.getElementById("logs");
+        tbody.innerHTML = "";
+
+        data.forEach((log) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+          <td>${log.created_at}</td>
+          <td>${log.username}</td>
+          <td>${log.type}</td>
+          <td>${log.status}</td>
+          <td>${log.message}</td>
+        `;
+          tbody.appendChild(row);
+        });
+      }
+
+      loadLogs();
+    </script>
+  </body>
+</html>

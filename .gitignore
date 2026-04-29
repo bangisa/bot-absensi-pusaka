@@ -1,0 +1,29 @@
+# ENV
+.env
+.env.*
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Database
+database/*.sqlite
+database/*.db
+
+# Puppeteer Cookies
+app/cookies/*.json
+
+# Logs
+*.log
+logs/
+
+# PM2
+.pm2/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+.cache/

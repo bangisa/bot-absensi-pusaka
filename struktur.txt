@@ -1,0 +1,44 @@
+attendance-bot/
+│
+├── app/
+│   ├── controllers/
+│   │   └── config.controller.js
+│   │
+│   ├── services/
+│   │   ├── scheduler.service.js
+│   │   ├── automation.service.js
+│   │   ├── notification.service.js
+│   │   └── auth.service.js
+│   │
+│   ├── models/
+│   │   └── config.model.js
+│   │
+│   ├── routes/
+│   │   └── config.routes.js
+│   │
+│   └── utils/
+│       ├── logger.js
+│       └── time.js
+│
+├── bot/
+│   ├── puppeteer.js
+│   └── cookies.json
+│
+├── config/
+│   └── default.json
+│
+├── public/
+│   ├── index.html
+│   ├── app.js
+│   └── style.css
+│
+├── database/
+│   └── db.sqlite
+│
+├── logs/
+│   └── app.log
+│
+├── .env
+├── index.js
+├── package.json
+└── README.md
