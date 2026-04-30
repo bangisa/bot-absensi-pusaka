@@ -152,7 +152,8 @@ process.on("uncaughtException", (err) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 
-  if (!schedulerRunning) {
+  if (process.env.AUTO_START === "true" && !schedulerRunning) {
+    console.log("⚡  Auto starting scheduler...");
     startScheduler();
     schedulerRunning = true;
   }

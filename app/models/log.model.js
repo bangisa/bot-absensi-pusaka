@@ -4,11 +4,11 @@ function createLog(data) {
   return db
     .prepare(
       `
-    INSERT INTO logs (user_id, type, status, message)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO logs (user_id, username, type, status, message)
+    VALUES (?, ?, ?, ?, ?)
   `,
     )
-    .run(data.user_id, data.type, data.status, data.message);
+    .run(data.user_id, data.username, data.type, data.status, data.message);
 }
 
 function getLogs(limit = 50) {

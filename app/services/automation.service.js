@@ -6,6 +6,8 @@ const { createLog } = require("../models/log.model");
 const BASE_URL = "https://pusaka-v3.kemenag.go.id";
 
 function getCookiePath(userId) {
+  const dir = path.join(__dirname, "../cookies");
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return path.join(__dirname, `../cookies/${userId}.json`);
 }
 
@@ -20,24 +22,41 @@ function formatDuration(ms) {
 // 🔐 AUTO LOGIN
 async function autoLogin(page, user) {
   try {
-    console.log(`🔐 Login: ${user.username}`);
+    await page.goto(`${BASE_URL}/login`, {
+      waitUntil: "domcontentloaded",
+    });
+
+    console.log(`[i] Login: ${user.username}`);
 
     await page.waitForSelector("input[name='email']", { timeout: 15000 });
 
-    await page.type("input[name='email']", user.username, { delay: 50 });
-    await page.type("input[name='password']", user.password, { delay: 50 });
+    await page.type("input[name='email']", user.username, { delay: 30 });
+    await page.type("input[name='password']", user.password, { delay: 30 });
 
-    await Promise.all([
-      page.click("button[type='submit']"),
-      page.waitForNavigation({ waitUntil: "networkidle2" }),
-    ]);
+    await page.click("button[type='submit']");
 
-    await page.waitForSelector("a[href='/profile']", { timeout: 15000 });
+    // 🔥 handle SPA + navigation
+    try {
+      await page.waitForNavigation({
+        waitUntil: "networkidle2",
+        timeout: 15000,
+      });
+    } catch {
+      console.log("[i] Tidak ada navigation (SPA), lanjut...");
+    }
 
-    console.log("Login sukses!");
+    // 🔥 validasi login sukses
+    await page.waitForSelector("a[href='/profile']", {
+      timeout: 20000,
+    });
+
+    // buffer kecil (optional tapi stabil)
+    await new Promise((r) => setTimeout(r, 1000));
+
+    console.log("[✔] Login sukses!");
     return true;
   } catch (err) {
-    console.log("❌ Login gagal:", err.message);
+    console.log("[x] Login error:", err.message);
     return false;
   }
 }
@@ -48,7 +67,7 @@ async function saveCookies(page, userId) {
     const cookies = await page.cookies();
     fs.writeFileSync(getCookiePath(userId), JSON.stringify(cookies, null, 2));
   } catch (err) {
-    console.log("❌ Gagal simpan cookie:", err.message);
+    console.log("[x] Gagal simpan cookie:", err.message);
   }
 }
 
@@ -65,43 +84,83 @@ async function loadCookies(page, userId) {
     const cookies = JSON.parse(content);
     await page.setCookie(...cookies);
 
-    console.log("🍪 Cookie loaded..");
+    console.log("[i] Cookie loaded..");
     return true;
   } catch (err) {
-    console.log("❌ Cookie rusak:", err.message);
+    console.log("[x] Cookie rusak:", err.message);
     return false;
   }
 }
 
+// Login with Retry
+async function loginWithRetry(page, user, maxRetry = 2) {
+  for (let attempt = 1; attempt <= maxRetry; attempt++) {
+    console.log(`[i] Login attempt ${attempt} user ${user.id}`);
+
+    const success = await autoLogin(page, user);
+
+    if (success) return true;
+
+    if (attempt < maxRetry) {
+      console.log("[i] Retry login...");
+      await page.goto(`${BASE_URL}/login`, {
+        waitUntil: "networkidle2",
+      });
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  }
+
+  return false;
+}
+
 // 🔍 CEK LOGIN
 async function isLoggedIn(page) {
-  try {
-    await page.waitForSelector("a[href='/profile']", { timeout: 8000 });
-    return true;
-  } catch {
-    return false;
-  }
+  return await page.evaluate(() => {
+    return !!document.querySelector("a[href='/profile']");
+  });
 }
 
 // ➡️ NAVIGASI KE ABSENSI
 async function gotoPresence(page) {
   for (let i = 0; i < 3; i++) {
     try {
+      console.log(`[i] goto presence attempt ${i + 1}`);
+
       await page.goto(`${BASE_URL}/profile/presence`, {
-        waitUntil: "networkidle2",
-        timeout: 60000,
+        waitUntil: "domcontentloaded",
+        timeout: 30000,
       });
 
-      const ok = await page.evaluate(() =>
-        window.location.pathname.includes("/profile/presence"),
+      await page.waitForFunction(
+        () => {
+          return (
+            window.location.pathname.includes("/profile/presence") ||
+            window.location.pathname.includes("/login")
+          );
+        },
+        { timeout: 15000 },
       );
 
-      if (ok) return true;
-    } catch {}
+      const isLoginPage = await page.evaluate(() =>
+        window.location.pathname.includes("/login"),
+      );
 
-    console.log(`🔁 Retry presence (${i + 1})`);
+      if (isLoginPage) {
+        throw new Error("Redirect ke login (session expired)");
+      }
+
+      await page.waitForSelector("button", { timeout: 10000 });
+
+      console.log("[i] Berhasil masuk halaman absensi");
+      return true;
+    } catch (err) {
+      console.log(`[x] Gagal masuk presence: ${err.message}`);
+    }
+
+    await new Promise((r) => setTimeout(r, 2000));
   }
 
+  console.log("[x] Gagal masuk halaman absensi setelah retry");
   return false;
 }
 
@@ -111,7 +170,7 @@ async function getPresenceStatus(page) {
     const text = document.body.innerText.toLowerCase();
 
     return {
-      masuk: text.includes("sudah presensi masuk"),
+      masuk: text.includes("sudah presensi masuk hari ini"),
       pulang: text.includes("sudah presensi hari ini"),
     };
   });
@@ -159,11 +218,11 @@ async function handleConfirm(page) {
     });
 
     if (found) {
-      console.log("Konfirmasi absen");
+      console.log("[i] Mengonfirmasi absen...");
       return true;
     }
 
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 3000));
   }
 
   return false;
@@ -175,7 +234,7 @@ async function openPusaka(type, user) {
 
   const browser = await puppeteer.launch({
     headless: true,
-    args: ["--no-sandbox"],
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
 
   try {
@@ -197,7 +256,7 @@ async function openPusaka(type, user) {
     // 🍪 COOKIE
     await loadCookies(page, user.id);
 
-    await page.goto(`${BASE_URL}/login`, {
+    await page.goto(BASE_URL, {
       waitUntil: "networkidle2",
     });
 
@@ -205,16 +264,26 @@ async function openPusaka(type, user) {
     let loggedIn = await isLoggedIn(page);
 
     if (!loggedIn && user.auto_login) {
-      const success = await autoLogin(page, user);
+      console.log("[i] Belum login, mencoba login...");
+
+      const success = await loginWithRetry(page, user, 2);
 
       if (!success) {
-        console.log("❌ Login gagal total");
+        console.log("[x] Login gagal total!");
+
+        createLog({
+          user_id: user.id,
+          type,
+          status: "failed",
+          message: "❌ Login gagal setelah retry",
+        });
+
         return;
       }
 
       await saveCookies(page, user.id);
     } else {
-      console.log("Login via cookie..");
+      console.log("[i] Login via cookie..");
     }
 
     // ➡️ PRESENCE
@@ -225,28 +294,28 @@ async function openPusaka(type, user) {
 
     // 🔍 LOGIC BERDASARKAN TYPE
     if (type === "masuk" && status.masuk) {
-      console.log("ℹ️ Sudah presensi masuk");
+      console.log("[i] Sudah presensi masuk!");
 
       createLog({
         user_id: user.id,
         username: user.username,
         type,
         status: "skipped",
-        message: "Sudah presensi masuk",
+        message: "✅ Sudah presensi masuk",
       });
 
       return;
     }
 
     if (type === "pulang" && status.pulang) {
-      console.log("ℹ️ Sudah presensi pulang");
+      console.log("[i] Sudah presensi pulang!");
 
       createLog({
         user_id: user.id,
         username: user.username,
         type,
         status: "skipped",
-        message: "Sudah presensi pulang",
+        message: "✅ Sudah presensi pulang",
       });
 
       return;
@@ -254,61 +323,81 @@ async function openPusaka(type, user) {
 
     // 🎯 EKSEKUSI
     const result = await clickPresensi(page, type);
+    const duration = Date.now() - startTime;
+    const now = new Date().toLocaleTimeString();
 
     if (result.status === "clicked") {
       await new Promise((r) => setTimeout(r, 2000));
       await handleConfirm(page);
 
-      const actionLabel =
-        type === "masuk"
-          ? "✅ Presensi masuk berhasil"
-          : type === "pulang"
-            ? "✅ Presensi pulang berhasil"
-            : "✅ Presensi berhasil";
+      const labelMap = {
+        masuk: "✅ Presensi masuk berhasil",
+        pulang: "✅ Presensi pulang berhasil",
+      };
 
-      const duration = Date.now() - startTime;
-      const now = new Date().toLocaleTimeString();
+      const actionLabel = labelMap[type] || "⚠️ Presensi tidak dikenal";
+
+      const now = new Date().toLocaleString("id-ID");
+
+      const message = `${actionLabel} (${formatDuration(duration)}) - ${now}`;
 
       createLog({
         user_id: user.id,
         username: user.username,
         type,
         status: "success",
-        message: `${actionLabel} (${formatDuration(duration)}) - ${now}`,
+        message,
       });
+
+      console.log(`[✔] ${message} | user=${user.id}`);
+      return;
     } else if (result.status === "disabled") {
-      const reason =
-        type === "masuk"
-          ? "⚠ Tombol presensi masuk disabled"
-          : type === "pulang"
-            ? "⚠ Tombol presensi pulang disabled"
-            : "⚠ Tombol presensi disabled";
+      const labelMap = {
+        masuk: "⚠️ Tombol presensi masuk disabled",
+        pulang: "⚠️ Tombol presensi pulang disabled",
+      };
+
+      const actionLabel = labelMap[type] || "⚠ Tombol presensi tidak dikenal";
+
+      const now = new Date().toLocaleString("id-ID");
+
+      const message = `${actionLabel} (${formatDuration(duration)}) - ${now}`;
 
       createLog({
         user_id: user.id,
         username: user.username,
         type,
         status: "skipped",
-        message: `${reason} (${formatDuration(duration)}) - ${now}`,
+        message,
       });
+
+      console.log(`[!] ${message} | user=${user.id}`);
+      return;
     } else {
-      const reason =
-        type === "masuk"
-          ? "❌ Tombol presensi masuk tidak ditemukan"
-          : type === "pulang"
-            ? "❌ Tombol presensi pulang tidak ditemukan"
-            : "❌ Tombol presensi tidak ditemukan";
+      const labelMap = {
+        masuk: "❌ Tombol presensi masuk tidak ditemukan",
+        pulang: "❌ Tombol presensi pulang tidak ditemukan",
+      };
+
+      const actionLabel = labelMap[type] || "❌ Tombol presensi tidak dikenal";
+
+      const now = new Date().toLocaleString("id-ID");
+
+      const message = `${actionLabel} (${formatDuration(duration)}) - ${now}`;
 
       createLog({
         user_id: user.id,
         username: user.username,
         type,
         status: "failed",
-        message: `${reason} (${formatDuration(duration)}) - ${now}`,
+        message,
       });
+
+      console.log(`[x] ${message} | user=${user.id}`);
+      return;
     }
   } catch (err) {
-    console.log("❌ Fatal:", err.message);
+    console.log("[x] Fatal:", err.message);
     createLog({
       user_id: user.id,
       username: user.username,
@@ -316,6 +405,7 @@ async function openPusaka(type, user) {
       status: "failed",
       message: err.message,
     });
+    return;
   } finally {
     await browser.close();
   }

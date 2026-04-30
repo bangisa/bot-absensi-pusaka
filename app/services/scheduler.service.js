@@ -1,6 +1,7 @@
 const cron = require("node-cron");
 const { getAllUsers } = require("../models/user.model");
 const { openPusaka } = require("./automation.service");
+const { addToQueue } = require("./queue.service");
 
 let jobs = [];
 const runningUsers = new Set();
@@ -19,10 +20,16 @@ async function runTaskPerUser(type, user) {
   runningUsers.add(user.id);
 
   try {
-    console.log(`👤 ${type} user ${user.id}`);
-    await openPusaka(type, user);
+    console.log(`[-] ${type} user ${user.id}`);
+    addToQueue(async () => {
+      console.log(`[START] User ${user.id} mulai`);
+
+      await openPusaka(type, user);
+
+      console.log(`[DONE] User ${user.id} selesai`);
+    });
   } catch (err) {
-    console.log(`❌ User ${user.id}:`, err.message);
+    console.log(`[x] User ${user.id}:`, err.message);
   } finally {
     runningUsers.delete(user.id);
   }
@@ -67,10 +74,24 @@ function startScheduler() {
 
   jobs.push(job);
 
-  console.log("🚀 Scheduler Started");
+  console.log("Scheduler started...");
+}
+
+let isRunning = false;
+
+function restartScheduler() {
+  if (isRunning) {
+    console.log("[!] Scheduler sedang berjalan, skip restart!");
+    return;
+  }
+
+  clearJobs();
+  startScheduler();
+  console.log("Scheduler restarted...");
 }
 
 module.exports = {
   startScheduler,
   clearJobs,
+  restartScheduler,
 };

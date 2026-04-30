@@ -2,6 +2,9 @@
 <html>
   <head>
     <title>Logs</title>
+    <script>
+      setInterval(loadLogs, 2000);
+    </script>
   </head>
   <body>
     <h2>📊 Logs</h2>
@@ -21,27 +24,32 @@
     </table>
 
     <script>
+      let lastData = "";
       async function loadLogs() {
-        const res = await fetch("/logs");
-        const data = await res.json();
+        try {
+          const res = await fetch("/logs");
+          const data = await res.json();
 
-        const tbody = document.getElementById("logs");
-        tbody.innerHTML = "";
+          const tbody = document.getElementById("logs-body");
+          tbody.innerHTML = "";
 
-        data.forEach((log) => {
-          const row = document.createElement("tr");
-          row.innerHTML = `
-          <td>${log.created_at}</td>
+          data.forEach((log) => {
+            const date = new Date(log.created_at + "Z").toLocaleString("id-ID");
+
+            tbody.innerHTML += `
+        <tr>
+          <td>${date}</td>
           <td>${log.username}</td>
           <td>${log.type}</td>
           <td>${log.status}</td>
           <td>${log.message}</td>
-        `;
-          tbody.appendChild(row);
-        });
+        </tr>
+      `;
+          });
+        } catch (err) {
+          console.log("❌ Gagal load logs:", err);
+        }
       }
-
-      loadLogs();
     </script>
   </body>
 </html>

@@ -1,4 +1,5 @@
 const { createUser, getAllUsers, deleteUser } = require("../models/user.model");
+const { restartScheduler } = require("../services/scheduler.service");
 
 function getAll(req, res) {
   const users = getAllUsers();
@@ -10,8 +11,10 @@ function create(req, res) {
     const data = req.body;
 
     const result = createUser(data);
+    restartScheduler();
 
     res.json({
+      success: true,
       message: "User berhasil ditambahkan",
       id: result.lastInsertRowid,
     });
@@ -46,6 +49,7 @@ function bulkCreate(req, res) {
     }
   });
 
+  restartScheduler();
   res.json({
     message: "Bulk insert selesai",
     success,
@@ -53,14 +57,24 @@ function bulkCreate(req, res) {
   });
 }
 
+function update(req, res) {
+  updateUser(req.params.id, req.body);
+
+  restartScheduler();
+
+  res.json({ success: true, message: "User berhasil diupdate" });
+}
+
 function remove(req, res) {
   deleteUser(req.params.id);
-  res.json({ message: "deleted" });
+  restartScheduler();
+  res.json({ success: true, message: "User berhasil dihapus" });
 }
 
 module.exports = {
   create,
   getAll,
   bulkCreate,
+  update,
   remove,
 };
