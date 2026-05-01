@@ -9,6 +9,8 @@ npm-debug.log*
 # Database
 database/*.sqlite
 database/*.db
+database/*.sqlite-wal
+database/*.sqlite-shm
 
 # Puppeteer Cookies
 app/cookies/*.json
