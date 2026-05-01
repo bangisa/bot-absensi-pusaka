@@ -74,7 +74,7 @@ function startScheduler() {
 
   jobs.push(job);
 
-  console.log("Scheduler started...");
+  console.log("Scheduler started");
 }
 
 let isRunning = false;

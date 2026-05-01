@@ -64,6 +64,7 @@ app.get("/start", (req, res) => {
   startScheduler();
   schedulerRunning = true;
 
+  console.log("Scheduler started");
   res.send("✅ Scheduler started");
 });
 
@@ -76,7 +77,7 @@ app.get("/stop", (req, res) => {
   clearJobs();
   schedulerRunning = false;
 
-  console.log("🔴 Scheduler Stopped");
+  console.log("Scheduler stopped");
   res.send("🛑 Scheduler stopped");
 });
 

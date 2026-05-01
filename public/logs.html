@@ -2,14 +2,12 @@
 <html>
   <head>
     <title>Logs</title>
-    <script>
-      setInterval(loadLogs, 2000);
-    </script>
   </head>
   <body>
     <h2>📊 Logs</h2>
     <button onclick="loadLogs()">Refresh</button>
     <hr />
+
     <table border="1">
       <thead>
         <tr>
@@ -24,32 +22,44 @@
     </table>
 
     <script>
-      let lastData = "";
+      let isLoading = false;
+
       async function loadLogs() {
+        if (isLoading) return;
+        isLoading = true;
+
         try {
           const res = await fetch("/logs");
           const data = await res.json();
 
-          const tbody = document.getElementById("logs-body");
+          const tbody = document.getElementById("logs");
           tbody.innerHTML = "";
 
           data.forEach((log) => {
             const date = new Date(log.created_at + "Z").toLocaleString("id-ID");
 
             tbody.innerHTML += `
-        <tr>
-          <td>${date}</td>
-          <td>${log.username}</td>
-          <td>${log.type}</td>
-          <td>${log.status}</td>
-          <td>${log.message}</td>
-        </tr>
-      `;
+              <tr>
+                <td>${date}</td>
+                <td>${log.username}</td>
+                <td>${log.type}</td>
+                <td>${log.status}</td>
+                <td>${log.message}</td>
+              </tr>
+            `;
           });
         } catch (err) {
           console.log("❌ Gagal load logs:", err);
+        } finally {
+          isLoading = false;
         }
       }
+
+      // 🔥 load pertama
+      loadLogs();
+
+      // 🔁 polling
+      setInterval(loadLogs, 2000);
     </script>
   </body>
 </html>
