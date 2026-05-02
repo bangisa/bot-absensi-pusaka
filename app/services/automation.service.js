@@ -1,7 +1,8 @@
-const puppeteer = require("puppeteer");
 const fs = require("fs");
 const path = require("path");
 const { createLog } = require("../models/log.model");
+const { getBrowser } = require("./browser.service");
+const { getPage, releasePage } = require("./page.service");
 
 const BASE_URL = "https://pusaka-v3.kemenag.go.id";
 
@@ -33,30 +34,25 @@ async function autoLogin(page, user) {
     await page.type("input[name='email']", user.username, { delay: 30 });
     await page.type("input[name='password']", user.password, { delay: 30 });
 
-    await page.click("button[type='submit']");
-
     // 🔥 handle SPA + navigation
     try {
+      await page.click("button[type='submit']");
       await page.waitForNavigation({
-        waitUntil: "networkidle2",
+        waitUntil: "domcontentloaded",
         timeout: 15000,
       });
-    } catch {
-      console.log("[i] Tidak ada navigation (SPA), lanjut...");
-    }
-
-    // 🔥 validasi login sukses
-    await page.waitForSelector("a[href='/profile']", {
-      timeout: 20000,
-    });
+      await page.waitForSelector("a[href='/profile']", {
+        timeout: 20000,
+      });
+    } catch {}
 
     // buffer kecil (optional tapi stabil)
     await new Promise((r) => setTimeout(r, 1000));
 
-    console.log("[✔] Login sukses!");
+    console.log("[V] Login sukses!");
     return true;
   } catch (err) {
-    console.log("[x] Login error:", err.message);
+    console.log("[X] Login error:", err.message);
     return false;
   }
 }
@@ -67,7 +63,7 @@ async function saveCookies(page, userId) {
     const cookies = await page.cookies();
     fs.writeFileSync(getCookiePath(userId), JSON.stringify(cookies, null, 2));
   } catch (err) {
-    console.log("[x] Gagal simpan cookie:", err.message);
+    console.log("[X] Gagal simpan cookie:", err.message);
   }
 }
 
@@ -87,7 +83,7 @@ async function loadCookies(page, userId) {
     console.log("[i] Cookie loaded..");
     return true;
   } catch (err) {
-    console.log("[x] Cookie rusak:", err.message);
+    console.log("[X] Cookie rusak:", err.message);
     return false;
   }
 }
@@ -104,7 +100,7 @@ async function loginWithRetry(page, user, maxRetry = 2) {
     if (attempt < maxRetry) {
       console.log("[i] Retry login...");
       await page.goto(`${BASE_URL}/login`, {
-        waitUntil: "networkidle2",
+        waitUntil: "domcontentloaded",
       });
       await new Promise((r) => setTimeout(r, 3000));
     }
@@ -115,16 +111,19 @@ async function loginWithRetry(page, user, maxRetry = 2) {
 
 // 🔍 CEK LOGIN
 async function isLoggedIn(page) {
-  return await page.evaluate(() => {
-    return !!document.querySelector("a[href='/profile']");
-  });
+  try {
+    await page.waitForSelector("a[href='/profile']", { timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ➡️ NAVIGASI KE ABSENSI
-async function gotoPresence(page) {
+async function gotoPresence(page, user) {
   for (let i = 0; i < 3; i++) {
     try {
-      console.log(`[i] goto presence attempt ${i + 1}`);
+      console.log(`[i] Go to presence attempt ${i + 1} user ${user.id}`);
 
       await page.goto(`${BASE_URL}/profile/presence`, {
         waitUntil: "domcontentloaded",
@@ -149,18 +148,26 @@ async function gotoPresence(page) {
         throw new Error("Redirect ke login (session expired)");
       }
 
-      await page.waitForSelector("button", { timeout: 10000 });
+      await page.waitForFunction(
+        () => {
+          const buttons = Array.from(document.querySelectorAll("button"));
+          return buttons.some((btn) =>
+            btn.innerText.toLowerCase().includes("presensi"),
+          );
+        },
+        { timeout: 15000 },
+      );
 
-      console.log("[i] Berhasil masuk halaman absensi");
+      console.log("[V] Berhasil masuk halaman absensi");
       return true;
     } catch (err) {
-      console.log(`[x] Gagal masuk presence: ${err.message}`);
+      console.log(`[X] Gagal masuk presence: ${err.message}`);
     }
 
     await new Promise((r) => setTimeout(r, 2000));
   }
 
-  console.log("[x] Gagal masuk halaman absensi setelah retry");
+  console.log("[X] Gagal masuk halaman absensi setelah retry");
   return false;
 }
 
@@ -170,7 +177,7 @@ async function getPresenceStatus(page) {
     const text = document.body.innerText.toLowerCase();
 
     return {
-      masuk: text.includes("sudah presensi masuk hari ini"),
+      masuk: text.includes("sudah presensi masuk"),
       pulang: text.includes("sudah presensi hari ini"),
     };
   });
@@ -178,8 +185,18 @@ async function getPresenceStatus(page) {
 
 // 🎯 KLIK PRESENSI
 async function clickPresensi(page, type) {
+  // tunggu tombol muncul dulu
+  await page.waitForFunction(
+    () => {
+      return document.querySelectorAll("button").length > 0;
+    },
+    { timeout: 20000 },
+  );
+
   return await page.evaluate((type) => {
-    const buttons = Array.from(document.querySelectorAll("button"));
+    const buttons = Array.from(document.querySelectorAll("button")).filter(
+      (btn) => btn.offsetParent !== null,
+    );
 
     for (const btn of buttons) {
       const text = btn.innerText.toLowerCase();
@@ -200,6 +217,21 @@ async function clickPresensi(page, type) {
 
     return { status: "not_found" };
   }, type);
+}
+
+async function clickWithRetry(page, type, maxRetry = 3) {
+  for (let i = 0; i < maxRetry; i++) {
+    const result = await clickPresensi(page, type);
+
+    if (result.status !== "not_found") {
+      return result;
+    }
+
+    console.log(`[i] Tombol belum ada, retry ${i + 1}`);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+
+  return { status: "not_found" };
 }
 
 // ✅ HANDLE MODAL
@@ -228,176 +260,186 @@ async function handleConfirm(page) {
   return false;
 }
 
-// 🚀 MAIN ENGINE
-async function openPusaka(type, user) {
-  const startTime = Date.now();
-
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
+async function resetPageState(page) {
+  await page.goto("about:blank");
 
   try {
-    const context = browser.defaultBrowserContext();
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+  } catch {}
+}
 
-    await context.overridePermissions(BASE_URL, ["geolocation"]);
+async function ensureLogin(page, user) {
+  await loadCookies(page, user.id);
 
-    const page = await browser.newPage();
+  console.log("[i] Membuka BASE_URL...");
+  await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+  console.log("[i] Halaman utama terbuka");
 
-    page.setDefaultTimeout(30000);
-    page.setDefaultNavigationTimeout(60000);
+  let loggedIn = await isLoggedIn(page);
 
-    // 🌍 SET GEO
+  if (!loggedIn && !user.auto_login) {
+    throw new Error("User tidak login dan auto_login disabled");
+  }
+
+  if (!loggedIn && user.auto_login) {
+    console.log("[i] Login diperlukan...");
+
+    const success = await loginWithRetry(page, user, 2);
+
+    if (!success) {
+      throw new Error("Login gagal total");
+    }
+
+    await saveCookies(page, user.id);
+    return;
+  }
+
+  console.log("[i] Login via cookie..");
+}
+
+async function handlePresenceFlow(page, type, user, startTime, now) {
+  const status = await getPresenceStatus(page);
+
+  if (type === "masuk" && status.masuk) {
+    return logSkip("Sudah presensi masuk", user, type, startTime, now);
+  }
+
+  if (type === "pulang" && status.pulang) {
+    return logSkip("Sudah presensi pulang", user, type, startTime, now);
+  }
+
+  const result = await clickWithRetry(page, type);
+
+  if (result.status === "clicked") {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await handleConfirm(page);
+
+    return logSuccess(type, user, startTime, now);
+  }
+
+  if (result.status === "disabled") {
+    return logSkip("Tombol disabled", user, type, startTime, now);
+  }
+
+  return logFail("Tombol tidak ditemukan", user, type, startTime, now);
+}
+
+function logSuccess(type, user, startTime, now) {
+  const duration = Date.now() - startTime;
+
+  const label = {
+    masuk: "Presensi masuk berhasil",
+    pulang: "Presensi pulang berhasil",
+  }[type];
+
+  const message = `✅ ${label} (${formatDuration(duration)}) - ${now}`;
+
+  createLog({
+    user_id: user.id,
+    username: user.username,
+    type,
+    status: "success",
+    message,
+  });
+
+  console.log(`[V] ${message} | user=${user.id}`);
+}
+
+function logSkip(label, user, type, startTime, now) {
+  const duration = Date.now() - startTime;
+
+  const message = `✅ ${label} (${formatDuration(duration)}) - ${now}`;
+
+  createLog({
+    user_id: user.id,
+    username: user.username,
+    type,
+    status: "skipped",
+    message,
+  });
+
+  console.log(`[!] ${message} | user=${user.id}`);
+}
+
+function logFail(label, user, type, startTime, now) {
+  const duration = Date.now() - startTime;
+
+  const message = `⚠️ ${label} (${formatDuration(duration)}) - ${now}`;
+
+  createLog({
+    user_id: user.id,
+    username: user.username,
+    type,
+    status: "failed",
+    message,
+  });
+
+  console.log(`[X] ${message} | user=${user.id}`);
+}
+
+// 🚀 MAIN ENGINE
+async function openPusaka(type, user) {
+  console.log("🔥 openPusaka dipanggil:", user.id, type);
+  const startTime = Date.now();
+  const now = new Date().toLocaleTimeString("id-ID");
+
+  await getBrowser();
+  let page;
+
+  try {
+    page = await getPage();
+
+    // interception (once)
+    if (!page._interceptionSet) {
+      await page.setRequestInterception(true);
+      page.on("request", (req) => {
+        try {
+          const type = req.resourceType();
+
+          if (["image", "stylesheet", "font"].includes(type)) {
+            req.abort();
+          } else {
+            req.continue();
+          }
+        } catch (err) {
+          try {
+            req.continue();
+          } catch {}
+        }
+      });
+      page._interceptionSet = true;
+    }
+
+    page.setDefaultTimeout(15000);
+    page.setDefaultNavigationTimeout(30000);
+
+    // GEO
     await page.setGeolocation({
       latitude: user.latitude,
       longitude: user.longitude,
     });
 
-    // 🍪 COOKIE
-    await loadCookies(page, user.id);
+    // RESET STATE
+    await resetPageState(page);
 
-    await page.goto(BASE_URL, {
-      waitUntil: "networkidle2",
-    });
+    // LOGIN
+    await ensureLogin(page, user);
 
-    // 🔐 LOGIN
-    let loggedIn = await isLoggedIn(page);
-
-    if (!loggedIn && user.auto_login) {
-      console.log("[i] Belum login, mencoba login...");
-
-      const success = await loginWithRetry(page, user, 2);
-
-      if (!success) {
-        console.log("[x] Login gagal total!");
-
-        createLog({
-          user_id: user.id,
-          type,
-          status: "failed",
-          message: "❌ Login gagal setelah retry",
-        });
-
-        return;
-      }
-
-      await saveCookies(page, user.id);
-    } else {
-      console.log("[i] Login via cookie..");
+    // NAVIGASI
+    const ok = await gotoPresence(page, user);
+    if (!ok) {
+      console.log("[X] Presence gagal total untuk user:", user.id);
+      throw new Error("Presence gagal!");
     }
 
-    // ➡️ PRESENCE
-    const ok = await gotoPresence(page);
-    if (!ok) return;
-
-    const status = await getPresenceStatus(page);
-
-    // 🔍 LOGIC BERDASARKAN TYPE
-    if (type === "masuk" && status.masuk) {
-      console.log("[i] Sudah presensi masuk!");
-
-      createLog({
-        user_id: user.id,
-        username: user.username,
-        type,
-        status: "skipped",
-        message: "✅ Sudah presensi masuk",
-      });
-
-      return;
-    }
-
-    if (type === "pulang" && status.pulang) {
-      console.log("[i] Sudah presensi pulang!");
-
-      createLog({
-        user_id: user.id,
-        username: user.username,
-        type,
-        status: "skipped",
-        message: "✅ Sudah presensi pulang",
-      });
-
-      return;
-    }
-
-    // 🎯 EKSEKUSI
-    const result = await clickPresensi(page, type);
-    const duration = Date.now() - startTime;
-    const now = new Date().toLocaleTimeString();
-
-    if (result.status === "clicked") {
-      await new Promise((r) => setTimeout(r, 2000));
-      await handleConfirm(page);
-
-      const labelMap = {
-        masuk: "✅ Presensi masuk berhasil",
-        pulang: "✅ Presensi pulang berhasil",
-      };
-
-      const actionLabel = labelMap[type] || "⚠️ Presensi tidak dikenal";
-
-      const now = new Date().toLocaleString("id-ID");
-
-      const message = `${actionLabel} (${formatDuration(duration)}) - ${now}`;
-
-      createLog({
-        user_id: user.id,
-        username: user.username,
-        type,
-        status: "success",
-        message,
-      });
-
-      console.log(`[✔] ${message} | user=${user.id}`);
-      return;
-    } else if (result.status === "disabled") {
-      const labelMap = {
-        masuk: "⚠️ Tombol presensi masuk disabled",
-        pulang: "⚠️ Tombol presensi pulang disabled",
-      };
-
-      const actionLabel = labelMap[type] || "⚠ Tombol presensi tidak dikenal";
-
-      const now = new Date().toLocaleString("id-ID");
-
-      const message = `${actionLabel} (${formatDuration(duration)}) - ${now}`;
-
-      createLog({
-        user_id: user.id,
-        username: user.username,
-        type,
-        status: "skipped",
-        message,
-      });
-
-      console.log(`[!] ${message} | user=${user.id}`);
-      return;
-    } else {
-      const labelMap = {
-        masuk: "❌ Tombol presensi masuk tidak ditemukan",
-        pulang: "❌ Tombol presensi pulang tidak ditemukan",
-      };
-
-      const actionLabel = labelMap[type] || "❌ Tombol presensi tidak dikenal";
-
-      const now = new Date().toLocaleString("id-ID");
-
-      const message = `${actionLabel} (${formatDuration(duration)}) - ${now}`;
-
-      createLog({
-        user_id: user.id,
-        username: user.username,
-        type,
-        status: "failed",
-        message,
-      });
-
-      console.log(`[x] ${message} | user=${user.id}`);
-      return;
-    }
+    // EKSEKUSI
+    await handlePresenceFlow(page, type, user, startTime, now);
   } catch (err) {
-    console.log("[x] Fatal:", err.message);
+    console.log("[X] Fatal:", err.message);
+
     createLog({
       user_id: user.id,
       username: user.username,
@@ -405,9 +447,8 @@ async function openPusaka(type, user) {
       status: "failed",
       message: err.message,
     });
-    return;
   } finally {
-    await browser.close();
+    if (page) await releasePage(page);
   }
 }
 

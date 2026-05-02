@@ -1,38 +1,60 @@
 const cron = require("node-cron");
 const { getAllUsers } = require("../models/user.model");
-const { openPusaka } = require("./automation.service");
 const { addToQueue } = require("./queue.service");
+const { openPusaka } = require("./automation.service");
+const { shouldRun } = require("./execution.guard");
 
 let jobs = [];
-const runningUsers = new Set();
+let isRunning = false;
+let isTickRunning = false;
 
-function getDay() {
-  return new Date().getDay();
+// Helper waktu
+function nowHM() {
+  const d = new Date();
+  return { h: d.getHours(), m: d.getMinutes() };
 }
 
-function getTime() {
-  return new Date().toTimeString().slice(0, 5);
+function matchTime(target) {
+  const { h, m } = nowHM();
+  const [th, tm] = target.split(":").map(Number);
+  return h === th && m === tm;
 }
 
-async function runTaskPerUser(type, user) {
-  if (runningUsers.has(user.id)) return;
+function resolveTypeForUser(user, day) {
+  const results = [];
 
-  runningUsers.add(user.id);
-
-  try {
-    console.log(`[-] ${type} user ${user.id}`);
-    addToQueue(async () => {
-      console.log(`[START] User ${user.id} mulai`);
-
-      await openPusaka(type, user);
-
-      console.log(`[DONE] User ${user.id} selesai`);
-    });
-  } catch (err) {
-    console.log(`[x] User ${user.id}:`, err.message);
-  } finally {
-    runningUsers.delete(user.id);
+  // MASUK
+  if (day !== 0 && matchTime(user.masuk)) {
+    results.push("masuk");
   }
+
+  // PULANG
+  if (day >= 1 && day <= 4 && matchTime(user.pulang)) {
+    results.push("pulang");
+  }
+
+  if (day === 5 && matchTime(user.jumat)) {
+    results.push("pulang");
+  }
+
+  if (day === 6 && matchTime(user.sabtu)) {
+    results.push("pulang");
+  }
+
+  return results;
+}
+
+function enqueueUserTask(type, user) {
+  // anti duplikasi per menit
+  if (!shouldRun(user.id, type)) return;
+
+  addToQueue(async () => {
+    console.log(`[START] ${type} user=${user.id}`);
+
+    await openPusaka(type, user);
+
+    console.log(`[DONE] ${type} user=${user.id}`);
+  });
 }
 
 function clearJobs() {
@@ -41,53 +63,42 @@ function clearJobs() {
 }
 
 function startScheduler() {
+  if (isRunning) return;
+
   clearJobs();
 
   const job = cron.schedule("* * * * *", async () => {
-    const day = getDay();
-    const time = getTime();
+    if (isTickRunning) return;
+    isTickRunning = true;
 
-    const users = getAllUsers();
+    try {
+      const day = new Date().getDay();
+      const users = getAllUsers();
 
-    for (const user of users) {
-      // MASUK
-      if (day !== 0 && time === user.masuk) {
-        runTaskPerUser("masuk", user);
+      for (const user of users) {
+        const types = resolveTypeForUser(user, day);
+
+        for (const type of types) {
+          enqueueUserTask(type, user);
+        }
       }
-
-      // SENIN-KAMIS
-      if (day >= 1 && day <= 4 && time === user.pulang) {
-        runTaskPerUser("pulang", user);
-      }
-
-      // JUMAT
-      if (day === 5 && time === user.jumat) {
-        runTaskPerUser("pulang", user);
-      }
-
-      // SABTU
-      if (day === 6 && time === user.sabtu) {
-        runTaskPerUser("pulang", user);
-      }
+    } catch (err) {
+      console.log("[X] Scheduler error:", err.message);
+    } finally {
+      isTickRunning = false;
     }
   });
 
   jobs.push(job);
+  isRunning = true;
 
   console.log("Scheduler started");
 }
 
-let isRunning = false;
-
 function restartScheduler() {
-  if (isRunning) {
-    console.log("[!] Scheduler sedang berjalan, skip restart!");
-    return;
-  }
-
   clearJobs();
+  isRunning = false;
   startScheduler();
-  console.log("Scheduler restarted...");
 }
 
 module.exports = {

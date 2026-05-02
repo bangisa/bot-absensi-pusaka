@@ -159,3 +159,12 @@ app.listen(PORT, () => {
     schedulerRunning = true;
   }
 });
+
+// MONITORING
+app.get("/health", (req, res) => {
+  res.json({
+    scheduler: schedulerRunning,
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+  });
+});
