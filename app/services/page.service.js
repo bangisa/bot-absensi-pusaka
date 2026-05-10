@@ -1,36 +1,49 @@
-const { getBrowser } = require("./browser.service");
+import { getBrowser } from "./browser.service.js";
 
-const pagePool = [];
-const MAX_PAGE = 3;
+const BASE_URL = "https://pusaka-v3.kemenag.go.id";
 
-// Ambil page
-async function getPage() {
-  // ambil dari pool kalau ada
-  if (pagePool.length > 0) {
-    return pagePool.pop();
-  }
+let activeContexts = 0;
 
-  // kalau tidak ada, buat baru
+export async function getPage() {
   const browser = await getBrowser();
-  return await browser.newPage();
+
+  const context = await browser.createBrowserContext();
+
+  activeContexts++;
+  console.log("[CTX OPEN]", activeContexts);
+
+  await context.overridePermissions(BASE_URL, ["geolocation"]);
+
+  const page = await context.newPage();
+
+  page.setDefaultTimeout(30000);
+  page.setDefaultNavigationTimeout(30000);
+
+  page.on("console", (msg) => console.log("[PAGE]", msg.text()));
+
+  page.on("pageerror", (err) => console.log("[PAGE ERROR]", err.message));
+
+  return { page, context };
 }
 
-// Kembalikan page ke pool
-async function releasePage(page) {
+export async function releasePage(page, context) {
   try {
-    await page.goto("about:blank");
-
-    if (pagePool.length >= MAX_PAGE) {
+    if (page && !page.isClosed()) {
+      page.removeAllListeners();
       await page.close();
-    } else {
-      pagePool.push(page);
     }
   } catch (err) {
-    console.log("[X] Page rusak, tidak dikembalikan ke pool");
+    console.log("[X] Gagal close page:", err.message);
+  }
+
+  try {
+    if (context) {
+      await context.close();
+
+      activeContexts--;
+      console.log("[CTX CLOSE]", activeContexts);
+    }
+  } catch (err) {
+    console.log("[X] Gagal close context:", err.message);
   }
 }
-
-module.exports = {
-  getPage,
-  releasePage,
-};

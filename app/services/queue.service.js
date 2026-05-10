@@ -1,5 +1,5 @@
 const MAX_CONCURRENT = 2;
-const TASK_TIMEOUT = 60000;
+const TASK_TIMEOUT = 180000;
 
 let running = 0;
 let queue = [];
@@ -18,20 +18,36 @@ function processQueue() {
     const task = queue.shift();
     running++;
 
+    console.log(
+      `[QUEUE] Start | Running: ${running}, Pending: ${queue.length}`,
+    );
+
     withTimeout(task)
       .catch((err) => {
         console.log("[X] Queue error:", err.message);
       })
       .finally(() => {
         running--;
+        console.log(
+          `[QUEUE] Done | Running: ${running}, Pending: ${queue.length}`,
+        );
         processQueue();
       });
   }
 }
 
 function addToQueue(task) {
-  queue.push(task);
-  processQueue();
+  return new Promise((resolve, reject) => {
+    queue.push(async () => {
+      try {
+        const result = await task();
+        resolve(result);
+      } catch (err) {
+        reject(err);
+      }
+    });
+    processQueue();
+  });
 }
 
-module.exports = { addToQueue };
+export { addToQueue };

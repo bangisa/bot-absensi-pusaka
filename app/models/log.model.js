@@ -1,4 +1,4 @@
-const db = require("../../database/db");
+import db from "../../database/db.js";
 
 function createLog(data) {
   return db
@@ -23,7 +23,4 @@ function getLogs(limit = 50) {
     .all(limit);
 }
 
-module.exports = {
-  createLog,
-  getLogs,
-};
+export { createLog, getLogs };

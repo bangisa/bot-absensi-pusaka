@@ -1,27 +1,21 @@
-const executed = new Set();
-
-function makeKey(userId, type, date = new Date()) {
-  const y = date.getFullYear();
-  const m = date.getMonth() + 1;
-  const d = date.getDate();
-  const h = date.getHours();
-  const min = date.getMinutes();
-  return `${userId}-${type}-${y}${m}${d}-${h}:${min}`;
-}
+const executed = new Map();
+const TTL = 60 * 1000;
 
 function shouldRun(userId, type) {
-  const key = makeKey(userId, type);
-  if (executed.has(key)) return false;
+  const key = `${userId}-${type}`;
+  const now = Date.now();
 
-  executed.add(key);
+  if (executed.has(key)) {
+    const lastRun = executed.get(key);
 
-  if (executed.size > 10000) {
-    executed.clear();
+    if (now - lastRun < TTL) {
+      console.log(`[GUARD] Skip ${key}`);
+      return false;
+    }
   }
 
+  executed.set(key, now);
   return true;
 }
 
-module.exports = {
-  shouldRun,
-};
+export { shouldRun };

@@ -1,26 +1,35 @@
-const puppeteer = require("puppeteer");
-
-const BASE_URL = "https://pusaka-v3.kemenag.go.id";
+import { launch } from "puppeteer";
 
 let browserInstance = null;
 
-async function getBrowser() {
+export async function getBrowser() {
+  if (browserInstance && !browserInstance.isConnected()) {
+    browserInstance = null;
+  }
+
   if (!browserInstance) {
-    browserInstance = await puppeteer.launch({
+    browserInstance = await launch({
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-accelerated-2d-canvas",
+        "--no-first-run",
+        "--no-zygote",
+        "--disable-gpu",
+      ],
+      defaultViewport: {
+        width: 1280,
+        height: 720,
+      },
     });
 
-    const context = browserInstance.defaultBrowserContext();
-    await context.overridePermissions(BASE_URL, ["geolocation"]);
-
     browserInstance.on("disconnected", () => {
-      console.log("[!] Browser closed, resetting instance...");
+      console.log("[!] Browser closed");
       browserInstance = null;
     });
   }
 
   return browserInstance;
 }
-
-module.exports = { getBrowser };

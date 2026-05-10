@@ -1,8 +1,8 @@
-const cron = require("node-cron");
-const { getAllUsers } = require("../models/user.model");
-const { addToQueue } = require("./queue.service");
-const { openPusaka } = require("./automation.service");
-const { shouldRun } = require("./execution.guard");
+import { schedule } from "node-cron";
+import { getAllUsers } from "../models/user.model.js";
+import { addToQueue } from "./queue.service.js";
+import { openPusaka } from "./automation.service.js";
+import { shouldRun } from "./execution.guard.js";
 
 let jobs = [];
 let isRunning = false;
@@ -15,9 +15,13 @@ function nowHM() {
 }
 
 function matchTime(target) {
-  const { h, m } = nowHM();
-  const [th, tm] = target.split(":").map(Number);
-  return h === th && m === tm;
+  const now = new Date();
+
+  const current =
+    `${String(now.getHours()).padStart(2, "0")}:` +
+    `${String(now.getMinutes()).padStart(2, "0")}`;
+
+  return current === target;
 }
 
 function resolveTypeForUser(user, day) {
@@ -45,15 +49,22 @@ function resolveTypeForUser(user, day) {
 }
 
 function enqueueUserTask(type, user) {
-  // anti duplikasi per menit
-  if (!shouldRun(user.id, type)) return;
+  if (!shouldRun(user.id, type)) {
+    return;
+  }
 
   addToQueue(async () => {
-    console.log(`[START] ${type} user=${user.id}`);
+    console.log(
+      `[${new Date().toISOString()}] [START] ${type} user=${user.id}`,
+    );
 
-    await openPusaka(type, user);
+    try {
+      await openPusaka(type, user);
+    } catch (err) {
+      console.log(`[X] Task error user=${user.id}:`, err.message);
+    }
 
-    console.log(`[DONE] ${type} user=${user.id}`);
+    console.log(`[${new Date().toISOString()}] [DONE] ${type} user=${user.id}`);
   });
 }
 
@@ -67,13 +78,13 @@ function startScheduler() {
 
   clearJobs();
 
-  const job = cron.schedule("* * * * *", async () => {
+  const job = schedule("* * * * *", async () => {
     if (isTickRunning) return;
     isTickRunning = true;
 
     try {
       const day = new Date().getDay();
-      const users = getAllUsers();
+      const users = await getAllUsers();
 
       for (const user of users) {
         const types = resolveTypeForUser(user, day);
@@ -92,7 +103,7 @@ function startScheduler() {
   jobs.push(job);
   isRunning = true;
 
-  console.log("Scheduler started");
+  console.log("⚡ Scheduler started");
 }
 
 function restartScheduler() {
@@ -101,8 +112,4 @@ function restartScheduler() {
   startScheduler();
 }
 
-module.exports = {
-  startScheduler,
-  clearJobs,
-  restartScheduler,
-};
+export { startScheduler, clearJobs, restartScheduler };

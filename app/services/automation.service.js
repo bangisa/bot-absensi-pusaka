@@ -1,23 +1,35 @@
-const fs = require("fs");
-const path = require("path");
-const { createLog } = require("../models/log.model");
-const { getBrowser } = require("./browser.service");
-const { getPage, releasePage } = require("./page.service");
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
+import { createLog } from "../models/log.model.js";
+import { getBrowser } from "./browser.service.js";
+import { getPage, releasePage } from "./page.service.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const BASE_URL = "https://pusaka-v3.kemenag.go.id";
 
 function getCookiePath(userId) {
-  const dir = path.join(__dirname, "../cookies");
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  return path.join(__dirname, `../cookies/${userId}.json`);
+  const dir = join(__dirname, "../cookies");
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  return join(__dirname, `../cookies/${userId}.json`);
 }
 
 // FORMAT WAKTU
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function formatDuration(ms) {
   if (ms < 1000) return `${ms} ms`;
 
   const sec = Math.floor(ms / 1000);
   return `${sec} detik`;
+}
+
+function getDuration(startTime) {
+  return ((Date.now() - startTime) / 1000).toFixed(1);
 }
 
 // 🔐 AUTO LOGIN
@@ -47,7 +59,7 @@ async function autoLogin(page, user) {
     } catch {}
 
     // buffer kecil (optional tapi stabil)
-    await new Promise((r) => setTimeout(r, 1000));
+    await sleep(1000);
 
     console.log("[V] Login sukses!");
     return true;
@@ -61,7 +73,7 @@ async function autoLogin(page, user) {
 async function saveCookies(page, userId) {
   try {
     const cookies = await page.cookies();
-    fs.writeFileSync(getCookiePath(userId), JSON.stringify(cookies, null, 2));
+    writeFileSync(getCookiePath(userId), JSON.stringify(cookies, null, 2));
   } catch (err) {
     console.log("[X] Gagal simpan cookie:", err.message);
   }
@@ -71,10 +83,10 @@ async function saveCookies(page, userId) {
 async function loadCookies(page, userId) {
   const file = getCookiePath(userId);
 
-  if (!fs.existsSync(file)) return false;
+  if (!existsSync(file)) return false;
 
   try {
-    const content = fs.readFileSync(file, "utf-8");
+    const content = readFileSync(file, "utf-8");
     if (!content) return false;
 
     const cookies = JSON.parse(content);
@@ -102,7 +114,7 @@ async function loginWithRetry(page, user, maxRetry = 2) {
       await page.goto(`${BASE_URL}/login`, {
         waitUntil: "domcontentloaded",
       });
-      await new Promise((r) => setTimeout(r, 3000));
+      await sleep(3000);
     }
   }
 
@@ -112,11 +124,61 @@ async function loginWithRetry(page, user, maxRetry = 2) {
 // 🔍 CEK LOGIN
 async function isLoggedIn(page) {
   try {
-    await page.waitForSelector("a[href='/profile']", { timeout: 5000 });
+    return await page.evaluate(() => {
+      return !!document.querySelector("a[href='/profile']");
+    });
     return true;
   } catch {
     return false;
   }
+}
+
+async function ensureLogin(page, user) {
+  await loadCookies(page, user.id);
+
+  console.log("[i] Membuka BASE_URL...");
+
+  await page.goto(BASE_URL, {
+    waitUntil: "domcontentloaded",
+    timeout: 60000,
+  });
+
+  await sleep(3000);
+
+  let loggedIn = await isLoggedIn(page);
+
+  // cookie invalid
+  if (!loggedIn) {
+    if (!user.auto_login) {
+      throw new Error("User tidak login dan auto_login disabled");
+    }
+
+    console.log("[!] Cookie tidak valid, login ulang...");
+
+    const success = await loginWithRetry(page, user, 2);
+
+    if (!success) {
+      throw new Error("Login gagal total");
+    }
+
+    await saveCookies(page, user.id);
+
+    // refresh state
+    await page.goto(BASE_URL, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    });
+
+    await sleep(3000);
+
+    loggedIn = await isLoggedIn(page);
+
+    if (!loggedIn) {
+      throw new Error("Login berhasil tapi session tidak valid");
+    }
+  }
+
+  console.log("[V] Login valid");
 }
 
 // ➡️ NAVIGASI KE ABSENSI
@@ -128,6 +190,11 @@ async function gotoPresence(page, user) {
       await page.goto(`${BASE_URL}/profile/presence`, {
         waitUntil: "domcontentloaded",
         timeout: 30000,
+      });
+
+      await page.waitForFunction(() => {
+        const btns = [...document.querySelectorAll("button")];
+        return btns.some((b) => b.innerText.toLowerCase().includes("presensi"));
       });
 
       await page.waitForFunction(
@@ -145,18 +212,33 @@ async function gotoPresence(page, user) {
       );
 
       if (isLoginPage) {
-        throw new Error("Redirect ke login (session expired)");
+        i = -1;
+        console.log("[!] Session expired, mencoba login ulang...");
+
+        const success = await loginWithRetry(page, user, 2);
+
+        if (!success) {
+          throw new Error("Login ulang gagal");
+        }
+
+        // ulangi navigasi setelah login
+        continue;
       }
 
-      await page.waitForFunction(
-        () => {
-          const buttons = Array.from(document.querySelectorAll("button"));
-          return buttons.some((btn) =>
-            btn.innerText.toLowerCase().includes("presensi"),
-          );
-        },
-        { timeout: 15000 },
-      );
+      await page.evaluate(() => {
+        const buttons = Array.from(document.querySelectorAll("button")).filter(
+          (btn) => {
+            const text = btn.innerText.toLowerCase();
+            return (
+              btn.offsetParent !== null &&
+              text.length > 3 &&
+              (text.includes("presensi") ||
+                text.includes("masuk") ||
+                text.includes("pulang"))
+            );
+          },
+        );
+      });
 
       console.log("[V] Berhasil masuk halaman absensi");
       return true;
@@ -164,7 +246,7 @@ async function gotoPresence(page, user) {
       console.log(`[X] Gagal masuk presence: ${err.message}`);
     }
 
-    await new Promise((r) => setTimeout(r, 2000));
+    await sleep(3000);
   }
 
   console.log("[X] Gagal masuk halaman absensi setelah retry");
@@ -174,24 +256,40 @@ async function gotoPresence(page, user) {
 // 🔍 CEK APAKAH SUDAH ABSEN?
 async function getPresenceStatus(page) {
   return await page.evaluate(() => {
-    const text = document.body.innerText.toLowerCase();
+    const buttons = Array.from(document.querySelectorAll("button")).filter(
+      (btn) => btn.offsetParent !== null,
+    );
 
+    const texts = buttons.map((btn) => btn.innerText.toLowerCase().trim());
+
+    const masuk =
+      texts.some((t) => t.includes("sudah presensi masuk")) ||
+      texts.some((t) => t.includes("presensi pulang"));
+
+    const pulang = texts.some((t) =>
+      t.includes("anda sudah presensi hari ini"),
+    );
+
+    console.log("[DEBUG BUTTONS]", texts);
     return {
-      masuk: text.includes("sudah presensi masuk"),
-      pulang: text.includes("sudah presensi hari ini"),
+      masuk,
+      pulang,
+      debug: texts,
     };
   });
 }
 
 // 🎯 KLIK PRESENSI
 async function clickPresensi(page, type) {
-  // tunggu tombol muncul dulu
-  await page.waitForFunction(
-    () => {
-      return document.querySelectorAll("button").length > 0;
-    },
-    { timeout: 20000 },
-  );
+  await page.waitForFunction(() => {
+    const btn = [...document.querySelectorAll("button")].find((b) =>
+      b.innerText.toLowerCase().includes("presensi"),
+    );
+
+    return btn && !btn.disabled;
+  });
+
+  await sleep(3000);
 
   return await page.evaluate((type) => {
     const buttons = Array.from(document.querySelectorAll("button")).filter(
@@ -228,7 +326,7 @@ async function clickWithRetry(page, type, maxRetry = 3) {
     }
 
     console.log(`[i] Tombol belum ada, retry ${i + 1}`);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await sleep(3000);
   }
 
   return { status: "not_found" };
@@ -251,57 +349,29 @@ async function handleConfirm(page) {
 
     if (found) {
       console.log("[i] Mengonfirmasi absen...");
+      await page
+        .waitForFunction(
+          () => {
+            return (
+              document.body.innerText.toLowerCase().includes("berhasil") ||
+              document.body.innerText.toLowerCase().includes("sudah presensi")
+            );
+          },
+          { timeout: 10000 },
+        )
+        .catch(() => {});
       return true;
     }
 
-    await new Promise((r) => setTimeout(r, 3000));
+    await sleep(3000);
   }
 
   return false;
 }
 
-async function resetPageState(page) {
-  await page.goto("about:blank");
-
-  try {
-    await page.evaluate(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-    });
-  } catch {}
-}
-
-async function ensureLogin(page, user) {
-  await loadCookies(page, user.id);
-
-  console.log("[i] Membuka BASE_URL...");
-  await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
-  console.log("[i] Halaman utama terbuka");
-
-  let loggedIn = await isLoggedIn(page);
-
-  if (!loggedIn && !user.auto_login) {
-    throw new Error("User tidak login dan auto_login disabled");
-  }
-
-  if (!loggedIn && user.auto_login) {
-    console.log("[i] Login diperlukan...");
-
-    const success = await loginWithRetry(page, user, 2);
-
-    if (!success) {
-      throw new Error("Login gagal total");
-    }
-
-    await saveCookies(page, user.id);
-    return;
-  }
-
-  console.log("[i] Login via cookie..");
-}
-
 async function handlePresenceFlow(page, type, user, startTime, now) {
   const status = await getPresenceStatus(page);
+  console.log("[DEBUG STATUS]", status);
 
   if (type === "masuk" && status.masuk) {
     return logSkip("Sudah presensi masuk", user, type, startTime, now);
@@ -314,7 +384,7 @@ async function handlePresenceFlow(page, type, user, startTime, now) {
   const result = await clickWithRetry(page, type);
 
   if (result.status === "clicked") {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await sleep(3000);
     await handleConfirm(page);
 
     return logSuccess(type, user, startTime, now);
@@ -328,14 +398,14 @@ async function handlePresenceFlow(page, type, user, startTime, now) {
 }
 
 function logSuccess(type, user, startTime, now) {
-  const duration = Date.now() - startTime;
+  const duration = getDuration(startTime);
 
   const label = {
     masuk: "Presensi masuk berhasil",
     pulang: "Presensi pulang berhasil",
   }[type];
 
-  const message = `✅ ${label} (${formatDuration(duration)}) - ${now}`;
+  const message = `✅ ${label} (${formatDuration(duration)})`;
 
   createLog({
     user_id: user.id,
@@ -349,9 +419,9 @@ function logSuccess(type, user, startTime, now) {
 }
 
 function logSkip(label, user, type, startTime, now) {
-  const duration = Date.now() - startTime;
+  const duration = getDuration(startTime);
 
-  const message = `✅ ${label} (${formatDuration(duration)}) - ${now}`;
+  const message = `✅ ${label} (${formatDuration(duration)})`;
 
   createLog({
     user_id: user.id,
@@ -365,9 +435,9 @@ function logSkip(label, user, type, startTime, now) {
 }
 
 function logFail(label, user, type, startTime, now) {
-  const duration = Date.now() - startTime;
+  const duration = getDuration(startTime);
 
-  const message = `⚠️ ${label} (${formatDuration(duration)}) - ${now}`;
+  const message = `⚠️ ${label} (${formatDuration(duration)})`;
 
   createLog({
     user_id: user.id,
@@ -382,38 +452,18 @@ function logFail(label, user, type, startTime, now) {
 
 // 🚀 MAIN ENGINE
 async function openPusaka(type, user) {
-  console.log("🔥 openPusaka dipanggil:", user.id, type);
   const startTime = Date.now();
   const now = new Date().toLocaleTimeString("id-ID");
+  console.log("🔥 openPusaka dipanggil:", user.id, type);
 
-  await getBrowser();
-  let page;
+  let page = null;
+  let context = null;
 
   try {
-    page = await getPage();
+    ({ page, context } = await getPage());
+    if (!page || !context) return;
 
-    // interception (once)
-    if (!page._interceptionSet) {
-      await page.setRequestInterception(true);
-      page.on("request", (req) => {
-        try {
-          const type = req.resourceType();
-
-          if (["image", "stylesheet", "font"].includes(type)) {
-            req.abort();
-          } else {
-            req.continue();
-          }
-        } catch (err) {
-          try {
-            req.continue();
-          } catch {}
-        }
-      });
-      page._interceptionSet = true;
-    }
-
-    page.setDefaultTimeout(15000);
+    page.setDefaultTimeout(30000);
     page.setDefaultNavigationTimeout(30000);
 
     // GEO
@@ -421,9 +471,6 @@ async function openPusaka(type, user) {
       latitude: user.latitude,
       longitude: user.longitude,
     });
-
-    // RESET STATE
-    await resetPageState(page);
 
     // LOGIN
     await ensureLogin(page, user);
@@ -448,10 +495,8 @@ async function openPusaka(type, user) {
       message: err.message,
     });
   } finally {
-    if (page) await releasePage(page);
+    await releasePage(page, context);
   }
 }
 
-module.exports = {
-  openPusaka,
-};
+export { openPusaka };

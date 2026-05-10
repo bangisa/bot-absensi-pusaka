@@ -1,4 +1,4 @@
-const db = require("../../database/db");
+import db from "../../database/db.js";
 // const bcrypt = require("bcrypt");
 
 // 🔍 VALIDASI
@@ -130,7 +130,7 @@ function deleteUser(id) {
   return db.prepare("DELETE FROM users WHERE id = ?").run(id);
 }
 
-module.exports = {
+export {
   getAllUsers,
   getUserById,
   bulkCreate,

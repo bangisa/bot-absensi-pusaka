@@ -17,6 +17,4 @@ function authMiddleware(req, res, next) {
   return res.redirect("/login.html");
 }
 
-module.exports = {
-  authMiddleware,
-};
+export { authMiddleware };

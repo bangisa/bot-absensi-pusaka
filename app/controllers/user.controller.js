@@ -1,5 +1,5 @@
-const { createUser, getAllUsers, deleteUser } = require("../models/user.model");
-const { restartScheduler } = require("../services/scheduler.service");
+import { createUser, getAllUsers, deleteUser } from "../models/user.model.js";
+import { restartScheduler } from "../services/scheduler.service.js";
 
 function getAll(req, res) {
   const users = getAllUsers();
@@ -71,7 +71,7 @@ function remove(req, res) {
   res.json({ success: true, message: "User berhasil dihapus" });
 }
 
-module.exports = {
+export default {
   create,
   getAll,
   bulkCreate,
