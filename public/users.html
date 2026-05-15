@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>User Management</title>
+
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+
+  <body>
+    <div class="container">
+      <h1>👥 User Management</h1>
+
+      <div class="card">
+        <form method="post" id="user-form" class="user-form">
+          <input type="text" id="username" placeholder="Username" />
+
+          <input type="password" id="password" placeholder="Password" />
+
+          <input
+            type="text"
+            id="lat"
+            placeholder="Latitude"
+            value="-6.62949867534904"
+          />
+
+          <input
+            type="text"
+            id="lng"
+            placeholder="Longitude"
+            value="110.72249001053517"
+          />
+
+          <button type="submit">Tambah User</button>
+        </form>
+      </div>
+
+      <div class="card table-wrapper">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Username</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+
+          <tbody id="users-list"></tbody>
+        </table>
+      </div>
+
+      <div class="footer-link">
+        <a href="/">⬅ Dashboard</a>
+      </div>
+    </div>
+
+    <script type="module" src="/js/users.js"></script>
+  </body>
+</html>

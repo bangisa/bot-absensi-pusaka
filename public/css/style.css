@@ -1,0 +1,358 @@
+/* =========================
+   RESET
+========================= */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+
+  background: #111827;
+  color: white;
+
+  font-family: Inter, system-ui, sans-serif;
+}
+
+/* =========================
+   LAYOUT
+========================= */
+
+.container {
+  max-width: 1100px;
+
+  margin: auto;
+
+  padding: 24px;
+}
+
+.card,
+.status-card {
+  background: #1f2937;
+
+  border-radius: 12px;
+
+  padding: 16px;
+
+  margin-bottom: 16px;
+}
+
+.card h3,
+.status-card h2 {
+  margin-top: 0;
+}
+
+.card p {
+  opacity: 0.85;
+}
+
+/* =========================
+   STATUS
+========================= */
+
+.status {
+  font-size: 24px;
+
+  font-weight: bold;
+}
+
+.online {
+  color: #10b981;
+}
+
+.offline {
+  color: #ef4444;
+}
+
+/* =========================
+   BUTTONS
+========================= */
+
+button {
+  border: none;
+
+  border-radius: 8px;
+
+  padding: 12px 20px;
+
+  cursor: pointer;
+
+  font-size: 14px;
+
+  transition:
+    opacity 0.2s ease,
+    background 0.2s ease;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+button:disabled {
+  opacity: 0.6;
+
+  cursor: not-allowed;
+}
+
+.danger {
+  background: #ef4444;
+
+  color: white;
+}
+
+/* =========================
+   ACTION GROUP
+========================= */
+
+.action-group {
+  display: flex;
+
+  gap: 12px;
+
+  margin-bottom: 24px;
+}
+
+/* =========================
+   FORM
+========================= */
+
+.user-form {
+  display: flex;
+
+  gap: 12px;
+
+  flex-wrap: wrap;
+
+  align-items: center;
+}
+
+.user-form input {
+  flex: 1;
+
+  min-width: 180px;
+}
+
+.user-form button {
+  height: 44px;
+
+  background: #2563eb;
+
+  color: white;
+
+  font-weight: 600;
+}
+
+.user-form button:hover {
+  background: #1d4ed8;
+}
+
+/* =========================
+   INPUT
+========================= */
+
+input {
+  background: #111827;
+
+  border: 1px solid #374151;
+
+  border-radius: 8px;
+
+  padding: 12px 14px;
+
+  color: white;
+
+  font-size: 14px;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+input::placeholder {
+  color: #9ca3af;
+}
+
+input:focus {
+  border-color: #60a5fa;
+
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+}
+
+/* =========================
+   TABLE
+========================= */
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.users-table,
+.logs-table {
+  width: 100%;
+
+  border-collapse: collapse;
+}
+
+.users-table th,
+.users-table td,
+.logs-table th,
+.logs-table td {
+  padding: 12px 16px;
+
+  text-align: left;
+
+  border-bottom: 1px solid #374151;
+
+  vertical-align: top;
+}
+
+.users-table th,
+.logs-table th {
+  background: #111827;
+
+  color: #9ca3af;
+
+  font-size: 13px;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.5px;
+}
+
+.users-table tr,
+.logs-table tr {
+  transition: background 0.15s ease;
+}
+
+.users-table tr:hover,
+.logs-table tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.logs-table td:last-child {
+  max-width: 400px;
+
+  overflow-wrap: break-word;
+}
+
+/* =========================
+   BADGES
+========================= */
+
+.badge {
+  display: inline-block;
+
+  padding: 4px 8px;
+
+  border-radius: 999px;
+
+  font-size: 12px;
+
+  font-weight: 600;
+}
+
+/* TYPE */
+
+.type-masuk {
+  background: rgba(59, 130, 246, 0.2);
+
+  color: #60a5fa;
+}
+
+.type-pulang {
+  background: rgba(168, 85, 247, 0.2);
+
+  color: #c084fc;
+}
+
+/* STATUS */
+
+.status-success {
+  background: rgba(16, 185, 129, 0.2);
+
+  color: #34d399;
+}
+
+.status-failed {
+  background: rgba(239, 68, 68, 0.2);
+
+  color: #f87171;
+}
+
+.status-skipped {
+  background: rgba(245, 158, 11, 0.2);
+
+  color: #fbbf24;
+}
+
+/* =========================
+   LOG ROW STATE
+========================= */
+
+tr.log-success {
+  border-left: 3px solid #10b981;
+}
+
+tr.log-failed {
+  border-left: 3px solid #ef4444;
+}
+
+tr.log-skipped {
+  border-left: 3px solid #f59e0b;
+}
+
+/* =========================
+   HEALTH GRID
+========================= */
+
+.health-grid {
+  display: grid;
+
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+
+  gap: 16px;
+}
+
+/* =========================
+   FOOTER LINK
+========================= */
+
+.footer-link {
+  margin-top: 24px;
+}
+
+.footer-link a {
+  color: #60a5fa;
+
+  text-decoration: none;
+}
+
+.footer-link a:hover {
+  text-decoration: underline;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 768px) {
+  .user-form {
+    flex-direction: column;
+  }
+
+  .user-form input,
+  .user-form button {
+    width: 100%;
+  }
+
+  .users-table th,
+  .users-table td,
+  .logs-table th,
+  .logs-table td {
+    padding: 10px;
+  }
+}

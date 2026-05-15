@@ -1,99 +1,62 @@
 <!doctype html>
-<html>
+<html lang="id">
   <head>
-    <title>Admin Dashboard</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Bot Absensi Pusaka</title>
+
+    <link rel="stylesheet" href="/css/style.css" />
   </head>
   <body>
-    <h2>🤖 Attendance Bot Control</h2>
+    <div class="container">
+      <h1>🤖 Bot Absensi Pusaka</h1>
 
-    <button onclick="startBot()">Start</button>
-    <button onclick="stopBot()">Stop</button>
-    <!-- <button onclick="checkStatus()">Status</button> -->
+      <div class="status-card">
+        <h2>Status Scheduler</h2>
 
-    <p id="status"></p>
+        <div id="scheduler-status" class="status offline">🔴 STOPPED</div>
+      </div>
 
-    <hr />
+      <div class="action-group">
+        <button id="start-btn">▶ Start Scheduler</button>
 
-    <h2>👤 Users</h2>
+        <button id="stop-btn" class="danger">■ Stop Scheduler</button>
+      </div>
 
-    <form onsubmit="addUser(event)">
-      <input placeholder="username" id="username" required />
-      <input placeholder="password" id="password" required />
-      <input placeholder="lat" id="lat" value="-6.62949867534904" required />
-      <input placeholder="lng" id="lng" value="110.72249001053517" required />
-      <button>Add</button>
-    </form>
+      <div class="health-grid">
+        <div class="card">
+          <h3>Queue</h3>
 
-    <ul id="users"></ul>
+          <p id="queue-status">-</p>
+        </div>
 
-    <hr />
+        <div class="card">
+          <h3>Browser</h3>
 
-    <a href="/logs.html">📊 Lihat Logs</a>
+          <p id="browser-status">-</p>
+        </div>
 
-    <script>
-      async function loadUsers() {
-        const res = await fetch("/api/users");
-        const users = await res.json();
+        <div class="card">
+          <h3>Memory</h3>
 
-        const ul = document.getElementById("users");
-        ul.innerHTML = "";
+          <p id="memory-status">-</p>
+        </div>
 
-        users.forEach((u) => {
-          const li = document.createElement("li");
-          li.innerHTML = `
-          ${u.username}
-          <button onclick="deleteUser(${u.id})">❌</button>
-        `;
-          ul.appendChild(li);
-        });
-      }
+        <div class="card">
+          <h3>Uptime</h3>
 
-      async function addUser(e) {
-        e.preventDefault();
+          <p id="uptime-status">-</p>
+        </div>
+      </div>
+        
+        <div class="footer-link">
+          <a href="/users.html"> 👥 User Management </a> ||
+          <a href="/logs.html">📄 Lihat Logs</a>
+        </div>
+      </div>
+    </div>
 
-        await fetch("/api/users", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: username.value,
-            password: password.value,
-            latitude: parseFloat(lat.value),
-            longitude: parseFloat(lng.value),
-            masuk: "06:05",
-            pulang: "14:35",
-            jumat: "11:35",
-            sabtu: "15:05",
-          }),
-        });
-
-        loadUsers();
-      }
-
-      async function deleteUser(id) {
-        await fetch("/api/users/" + id, { method: "DELETE" });
-        loadUsers();
-      }
-
-      async function startBot() {
-        await fetch("/start");
-        checkStatus();
-      }
-
-      async function stopBot() {
-        await fetch("/stop");
-        checkStatus();
-      }
-
-      async function checkStatus() {
-        const res = await fetch("/status");
-        const data = await res.json();
-        document.getElementById("status").innerText = data.scheduler
-          ? "🟢 RUNNING"
-          : "🔴 STOPPED";
-      }
-
-      loadUsers();
-      checkStatus();
-    </script>
+    <script type="module" src="/js/dashboard.js"></script>
   </body>
 </html>

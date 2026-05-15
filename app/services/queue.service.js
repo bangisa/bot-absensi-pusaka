@@ -1,5 +1,7 @@
-const MAX_CONCURRENT = 2;
-const TASK_TIMEOUT = 180000;
+import { queueConfig } from "../config/index.js";
+
+const MAX_CONCURRENT = queueConfig.maxConcurrent;
+const TASK_TIMEOUT = queueConfig.taskTimeout;
 
 let running = 0;
 let queue = [];
@@ -50,4 +52,12 @@ function addToQueue(task) {
   });
 }
 
-export { addToQueue };
+function getQueueStatus() {
+  return {
+    running,
+    pending: queue.length,
+    maxConcurrent: MAX_CONCURRENT,
+  };
+}
+
+export { addToQueue, getQueueStatus };

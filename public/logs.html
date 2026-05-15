@@ -1,65 +1,38 @@
 <!doctype html>
-<html>
+<html lang="id">
   <head>
-    <title>Logs</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Logs Bot</title>
+
+    <link rel="stylesheet" href="/css/style.css" />
   </head>
   <body>
-    <h2>📊 Logs</h2>
-    <button onclick="loadLogs()">Refresh</button>
-    <hr />
+    <div class="container">
+      <h1>📄 Logs Bot</h1>
 
-    <table border="1">
-      <thead>
-        <tr>
-          <th>Waktu</th>
-          <th>User</th>
-          <th>Type</th>
-          <th>Status</th>
-          <th>Message</th>
-        </tr>
-      </thead>
-      <tbody id="logs"></tbody>
-    </table>
+      <div class="card table-wrapper">
+        <table class="logs-table">
+          <thead>
+            <tr>
+              <th>Waktu</th>
+              <th>User</th>
+              <th>Tipe</th>
+              <th>Status</th>
+              <th>Pesan</th>
+            </tr>
+          </thead>
 
-    <script>
-      let isLoading = false;
+          <tbody id="logs"></tbody>
+        </table>
+      </div>
 
-      async function loadLogs() {
-        if (isLoading) return;
-        isLoading = true;
+      <div class="footer-link">
+        <a href="/">⬅ Kembali</a>
+      </div>
+    </div>
 
-        try {
-          const res = await fetch("/logs");
-          const data = await res.json();
-
-          const tbody = document.getElementById("logs");
-          tbody.innerHTML = "";
-
-          data.forEach((log) => {
-            const date = new Date(log.created_at + "Z").toLocaleString("id-ID");
-
-            tbody.innerHTML += `
-              <tr>
-                <td>${date}</td>
-                <td>${log.username}</td>
-                <td>${log.type}</td>
-                <td>${log.status}</td>
-                <td>${log.message}</td>
-              </tr>
-            `;
-          });
-        } catch (err) {
-          console.log("❌ Gagal load logs:", err);
-        } finally {
-          isLoading = false;
-        }
-      }
-
-      // 🔥 load pertama
-      loadLogs();
-
-      // 🔁 polling
-      setInterval(loadLogs, 2000);
-    </script>
+    <script type="module" src="/js/logs.js"></script>
   </body>
 </html>

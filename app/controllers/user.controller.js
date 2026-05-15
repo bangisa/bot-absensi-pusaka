@@ -1,8 +1,14 @@
-import { createUser, getAllUsers, deleteUser } from "../models/user.model.js";
-import { restartScheduler } from "../services/scheduler.service.js";
+import {
+  insertUser,
+  findAllUsers,
+  updateUser,
+  removeUser,
+  insertUsers,
+} from "../models/index.js";
+import { restartScheduler } from "../services/index.js";
 
-function getAll(req, res) {
-  const users = getAllUsers();
+function findAll(req, res) {
+  const users = findAllUsers();
   res.json(users);
 }
 
@@ -10,7 +16,7 @@ function create(req, res) {
   try {
     const data = req.body;
 
-    const result = createUser(data);
+    const result = insertUser(data);
     restartScheduler();
 
     res.json({
@@ -25,38 +31,6 @@ function create(req, res) {
   }
 }
 
-function bulkCreate(req, res) {
-  const users = req.body;
-
-  if (!Array.isArray(users)) {
-    return res.status(400).json({
-      error: "Body harus array",
-    });
-  }
-
-  let success = 0;
-  let failed = [];
-
-  users.forEach((user, index) => {
-    try {
-      createUser(user);
-      success++;
-    } catch (err) {
-      failed.push({
-        index,
-        error: err.message,
-      });
-    }
-  });
-
-  restartScheduler();
-  res.json({
-    message: "Bulk insert selesai",
-    success,
-    failed,
-  });
-}
-
 function update(req, res) {
   updateUser(req.params.id, req.body);
 
@@ -66,14 +40,31 @@ function update(req, res) {
 }
 
 function remove(req, res) {
-  deleteUser(req.params.id);
+  removeUser(req.params.id);
   restartScheduler();
   res.json({ success: true, message: "User berhasil dihapus" });
 }
 
+async function bulkCreate(req, res) {
+  try {
+    const result = insertUsers(req.body);
+
+    restartScheduler();
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (err) {
+    res.status(400).json({
+      error: err.message,
+    });
+  }
+}
+
 export default {
   create,
-  getAll,
+  findAll,
   bulkCreate,
   update,
   remove,

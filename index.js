@@ -1,37 +1,27 @@
-import dotenv from "dotenv";
 import express from "express";
 import session from "express-session";
 
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
+import { appConfig } from "./app/config/index.js";
 
-// ROUTES & MIDDLEWARE
-import { router } from "./app/routes/user.route.js";
-import { authMiddleware } from "./app/middleware/auth.middleware.js";
+import { resolvePath } from "./app/helpers/index.js";
+
+// ROUTES
+import {
+  systemRoutes,
+  testingRoutes,
+  userRoutes,
+  webRoutes,
+} from "./app/routes/index.js";
 
 // SERVICES
-import { startScheduler, clearJobs } from "./app/services/scheduler.service.js";
-
-import { openPusaka } from "./app/services/automation.service.js";
-
-// MODELS
-import { getUserById } from "./app/models/user.model.js";
-import { getLogs } from "./app/models/log.model.js";
-
-// INIT
-dotenv.config();
+import { startScheduler, getSchedulerStatus } from "./app/services/index.js";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = appConfig.port;
 
 // ESM __dirname FIX
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const path = resolvePath(import.meta.url);
 
-// STATE
-let schedulerRunning = false;
-
-// 🔹 MIDDLEWARE
 app.use(express.json());
 
 app.use(
@@ -40,147 +30,37 @@ app.use(
   }),
 );
 
-app.use((req, res, next) => {
-  res.setHeader(
-    "Cache-Control",
-    "no-store, no-cache, must-revalidate, proxy-revalidate",
-  );
-
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-
-  next();
-});
-
 app.use(
   session({
-    secret: process.env.APP_SECRET || "secret123",
+    secret: appConfig.secret,
+
     resave: false,
+
     saveUninitialized: false,
+
     cookie: {
-      secure: false,
+      secure: appConfig.isProduction,
+
       httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 8,
+
+      maxAge: appConfig.sessionMaxAge,
     },
   }),
 );
 
 // STATIC
-app.use(express.static(join(__dirname, "public")));
+app.use(express.static(path.resolve("public")));
 
 // 🔹 ROUTES
-app.use("/api/users", router);
+app.use("/", webRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/system", systemRoutes);
+app.use("/api/testing", testingRoutes);
 
-// 🔹 HOME
-app.get("/", (req, res) => {
-  res.sendFile(join(__dirname, "public", "login.html"));
-});
-
-// 🔹 STATUS
-app.get("/status", (req, res) => {
-  res.json({
-    scheduler: schedulerRunning,
-  });
-});
-
-// 🔹 START SCHEDULER
-app.get("/start", (req, res) => {
-  if (schedulerRunning) {
-    return res.send("⚠️ Scheduler sudah berjalan");
-  }
-
-  startScheduler();
-  schedulerRunning = true;
-
-  console.log("⚡ Scheduler started");
-
-  res.send("⚡ Scheduler started");
-});
-
-// 🔹 STOP SCHEDULER
-app.get("/stop", (req, res) => {
-  if (!schedulerRunning) {
-    return res.send("⚠️ Scheduler sudah berhenti");
-  }
-
-  clearJobs();
-  schedulerRunning = false;
-
-  console.log("🛑 Scheduler stopped");
-
-  res.send("🛑 Scheduler stopped");
-});
-
-// 🔹 LOGS
-app.get("/logs", (req, res) => {
-  res.json(getLogs(100));
-});
-
-// 🔹 TEST BOT
-app.get("/test-bot/:id", async (req, res) => {
-  try {
-    const userId = Number(req.params.id);
-
-    if (Number.isNaN(userId)) {
-      return res.status(400).send("ID tidak valid");
-    }
-
-    const user = getUserById(userId);
-
-    if (!user) {
-      return res.status(404).send("User tidak ditemukan");
-    }
-
-    await openPusaka("masuk", user);
-
-    return res.send(`✅ Bot dijalankan untuk user ${user.id}`);
-  } catch (err) {
-    console.error("[TEST BOT ERROR]", err);
-
-    return res.status(500).send("❌ Error bot: " + err.message);
-  }
-});
-
-// 🔹 LOGIN
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.status(400).json({
-      error: "Input tidak lengkap",
-    });
-  }
-
-  const valid =
-    username === process.env.ADMIN_USERNAME &&
-    password === process.env.ADMIN_PASSWORD;
-
-  if (!valid) {
-    return res.status(401).json({
-      error: "Login gagal",
-    });
-  }
-
-  req.session.isLogin = true;
-
-  return res.json({
-    success: true,
-  });
-});
-
-// 🔹 LOGOUT
-app.get("/logout", (req, res) => {
-  req.session.destroy(() => {
-    res.redirect("/login.html");
-  });
-});
-
-// 🔹 HEALTHCHECK
-app.get("/health", (req, res) => {
-  res.json({
-    scheduler: schedulerRunning,
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
+// 404 HANDLER
+app.use((req, res) => {
+  res.status(404).json({
+    error: "Route not found",
   });
 });
 
@@ -206,11 +86,9 @@ process.on("uncaughtException", (err) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 
-  if (process.env.AUTO_START === "true" && !schedulerRunning) {
+  const status = getSchedulerStatus();
+  if (appConfig.autoStart && !status.running) {
     console.log("⚡ Auto starting scheduler...");
-
     startScheduler();
-
-    schedulerRunning = true;
   }
 });

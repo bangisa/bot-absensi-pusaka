@@ -1,47 +1,44 @@
-import { getBrowser } from "./browser.service.js";
+import {
+  getBrowser,
+  incrementContexts,
+  decrementContexts,
+} from "./browser.service.js";
+import {
+  configurePage,
+  attachPageListeners,
+  detachPageListeners,
+} from "../helpers/index.js";
+import { browserConfig } from "./../config/index.js";
 
-const BASE_URL = "https://pusaka-v3.kemenag.go.id";
-
-let activeContexts = 0;
-
-export async function getPage() {
+export async function getPage(user = null) {
   const browser = await getBrowser();
 
   const context = await browser.createBrowserContext();
 
-  activeContexts++;
-  console.log("[CTX OPEN]", activeContexts);
+  incrementContexts();
 
-  await context.overridePermissions(BASE_URL, ["geolocation"]);
+  await context.overridePermissions(browserConfig.baseUrl, ["geolocation"]);
 
   const page = await context.newPage();
 
-  page.setDefaultTimeout(30000);
-  page.setDefaultNavigationTimeout(30000);
+  configurePage(page);
 
-  page.on("console", (msg) => console.log("[PAGE]", msg.text()));
-
-  page.on("pageerror", (err) => console.log("[PAGE ERROR]", err.message));
+  attachPageListeners(page, {
+    userId: user?.id,
+    requestFailed: true,
+  });
 
   return { page, context };
 }
 
 export async function releasePage(page, context) {
   try {
-    if (page && !page.isClosed()) {
-      page.removeAllListeners();
-      await page.close();
-    }
-  } catch (err) {
-    console.log("[X] Gagal close page:", err.message);
-  }
-
-  try {
     if (context) {
+      detachPageListeners(page);
+
       await context.close();
 
-      activeContexts--;
-      console.log("[CTX CLOSE]", activeContexts);
+      decrementContexts();
     }
   } catch (err) {
     console.log("[X] Gagal close context:", err.message);
