@@ -2,7 +2,7 @@
 .env
 .env.*
 
-.vscode/settings.json
+.vscode/
 
 # Node
 node_modules/
@@ -16,7 +16,7 @@ database/*.sqlite-shm
 database/seed.js
 
 # Puppeteer Cookies
-cookies/*.json
+cookies/
 
 # Logs
 *.log
