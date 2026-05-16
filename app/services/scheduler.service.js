@@ -3,7 +3,7 @@ import { findAllUsers } from "../models/index.js";
 import { addToQueue } from "./queue.service.js";
 import { openPusaka } from "./automation.service.js";
 import { shouldRun } from "./execution.guard.js";
-import { resolveTypeForUser } from "../helpers/index.js";
+import { resolveTypeForUser, nowLog } from "../helpers/index.js";
 
 let jobs = [];
 let isRunning = false;
@@ -23,9 +23,7 @@ function enqueueUserTask(type, user) {
   }
 
   addToQueue(async () => {
-    console.log(
-      `[${new Date().toISOString()}] [START] ${type} user=${user.id}`,
-    );
+    console.log(`[${nowLog()}] [START] ${type} user=${user.id}`);
 
     try {
       await openPusaka(type, user);
@@ -33,7 +31,7 @@ function enqueueUserTask(type, user) {
       console.log(`[X] Task error user=${user.id}:`, err.message);
     }
 
-    console.log(`[${new Date().toISOString()}] [DONE] ${type} user=${user.id}`);
+    console.log(`[${nowLog()}] [DONE] ${type} user=${user.id}`);
   });
 }
 

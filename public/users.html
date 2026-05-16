@@ -15,9 +15,14 @@
 
       <div class="card">
         <form method="post" id="user-form" class="user-form">
-          <input type="text" id="username" placeholder="Username" />
+          <input type="text" id="username" placeholder="Username*" required />
 
-          <input type="password" id="password" placeholder="Password" />
+          <input
+            type="password"
+            id="password"
+            placeholder="Password*"
+            required
+          />
 
           <input
             type="text"
@@ -57,6 +62,13 @@
         <a href="/">⬅ Dashboard</a>
       </div>
     </div>
+
+    <footer class="app-footer">
+      <p>
+        Bot Absensi Pusaka • By
+        <a href="https://isacool.my.id/" target="_blank"> @isacool </a>
+      </p>
+    </footer>
 
     <script type="module" src="/js/users.js"></script>
   </body>

@@ -2,12 +2,13 @@ import { createLog } from "../models/index.js";
 import { getPage, releasePage } from "./page.service.js";
 import { ensureLogin } from "./auth.service.js";
 import { gotoPresence, handlePresenceFlow } from "./presence.service.js";
+import { nowID } from "../helpers/index.js";
 
 // 🚀 MAIN ENGINE
 async function openPusaka(type, user) {
   const startTime = Date.now();
-  const now = new Date();
-  console.log("🔥 openPusaka dipanggil:", user.id, type);
+  const now = nowID();
+  console.log("[INFO] openPusaka dipanggil:", user.id, type);
 
   let page = null;
   let context = null;

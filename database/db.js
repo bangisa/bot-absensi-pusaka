@@ -44,7 +44,7 @@ try {
       type TEXT,
       status TEXT CHECK(status IN ('success','failed','skipped')),
       message TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at TEXT,
       FOREIGN KEY (user_id) REFERENCES users(id)
     )
   `,

@@ -1,5 +1,5 @@
 import db from "../../database/db.js";
-import { schedulerConfig } from "../config/index.js";
+import { schedulerConfig, geoConfig } from "../config/index.js";
 import { validateUser } from "../validators/user.validator.js";
 // const bcrypt = require("bcrypt");
 
@@ -30,8 +30,8 @@ function insertUser(data) {
     .run(
       data.username,
       data.password,
-      data.latitude,
-      data.longitude,
+      data.latitude || geoConfig.defaultLat,
+      data.longitude || geoConfig.defaultLng,
       data.masuk || schedulerConfig.defaultMasuk,
 
       data.pulang || schedulerConfig.defaultPulang,
@@ -62,8 +62,8 @@ function updateUser(id, data) {
     )
     .run(
       data.password,
-      data.latitude,
-      data.longitude,
+      data.latitude || geoConfig.defaultLat,
+      data.longitude || geoConfig.defaultLng,
       data.masuk || schedulerConfig.defaultMasuk,
       data.pulang || schedulerConfig.defaultPulang,
       data.jumat || schedulerConfig.defaultJumat,
@@ -104,8 +104,8 @@ function insertUsers(users) {
       insert.run(
         user.username,
         user.password,
-        user.latitude,
-        user.longitude,
+        user.latitude || geoConfig.defaultLat,
+        user.longitude || geoConfig.defaultLng,
         user.masuk || schedulerConfig.defaultMasuk,
         user.pulang || schedulerConfig.defaultPulang,
         user.jumat || schedulerConfig.defaultJumat,

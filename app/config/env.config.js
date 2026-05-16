@@ -19,7 +19,9 @@ function required(value, name) {
 }
 
 export const env = {
-  NODE_ENV: process.env.NODE_ENV || "development",
+  NODE_ENV: process.env.NODE_ENV || "production",
+
+  TZ: process.env.TZ || "Asia/Jakarta",
 
   PORT: toNumber(process.env.PORT, 3000),
 

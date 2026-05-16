@@ -14,7 +14,7 @@ database/*.sqlite-shm
 database/seed.js
 
 # Puppeteer Cookies
-app/cookies/*.json
+cookies/*.json
 
 # Logs
 *.log

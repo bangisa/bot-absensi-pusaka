@@ -1,3 +1,8 @@
+import "dotenv/config";
+import { env } from "./app/config/index.js";
+
+process.env.TZ = env.TZ;
+
 import express from "express";
 import session from "express-session";
 
@@ -83,7 +88,7 @@ process.on("uncaughtException", (err) => {
 });
 
 // 🚀 START SERVER
-app.listen(PORT, () => {
+app.listen(PORT, "127.0.0.1", () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 
   const status = getSchedulerStatus();

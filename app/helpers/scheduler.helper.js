@@ -1,7 +1,7 @@
-import { now } from "./time.helper.js";
+import { nowID } from "./time.helper.js";
 
 function matchTime(target) {
-  const currentTime = now();
+  const currentTime = nowID();
 
   const current =
     `${String(currentTime.getHours()).padStart(2, "0")}:` +

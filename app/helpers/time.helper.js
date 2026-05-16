@@ -2,22 +2,24 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function now() {
-  return new Date();
-}
-
-function formatNow(date = now()) {
-  return date.toLocaleString("id-ID", {
-    timeZone: "Asia/Jakarta",
-  });
-}
-
-function nowJakarta() {
+function nowID() {
   return new Date(
     new Date().toLocaleString("en-US", {
       timeZone: "Asia/Jakarta",
     }),
   );
+}
+
+function nowSQL() {
+  return new Date().toLocaleString("sv-SE", {
+    timeZone: "Asia/Jakarta",
+  });
+}
+
+function nowLog() {
+  return new Date().toLocaleString("sv-SE", {
+    timeZone: "Asia/Jakarta",
+  });
 }
 
 function getDuration(startTime) {
@@ -41,4 +43,4 @@ function formatDuration(durationMs) {
   return `${min}m ${remainingSec}d`;
 }
 
-export { sleep, now, formatNow, nowJakarta, getDuration, formatDuration };
+export { sleep, nowID, nowSQL, nowLog, getDuration, formatDuration };
