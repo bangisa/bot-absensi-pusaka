@@ -1,23 +1,19 @@
 import { schedule } from "node-cron";
 
 import {
-  findAllUsers,
   findPendingSchedulesByDate,
   markScheduleProcessing,
   markScheduleSuccess,
   markScheduleFailed,
   markScheduleSkipped,
+  markScheduleRetry,
   resetProcessingSchedules,
 } from "../models/index.js";
 
 import { addToQueue } from "./queue.service.js";
 import { openPusaka } from "./automation.service.js";
 
-import {
-  generateDailySchedules,
-  getJakartaDate,
-  getJakartaTime,
-} from "./daily-schedule.service.js";
+import { getJakartaDate, getJakartaTime } from "./daily-schedule.service.js";
 
 import { nowLog } from "../helpers/index.js";
 
@@ -25,11 +21,81 @@ let jobs = [];
 let isRunning = false;
 let isTickRunning = false;
 
+const MAX_SCHEDULE_DELAY_SECONDS = 10 * 60;
+
 function getSchedulerStatus() {
   return {
     running: isRunning,
     tickRunning: isTickRunning,
     totalJobs: jobs.length,
+  };
+}
+
+function timeToSeconds(time) {
+  const [hour = 0, minute = 0, second = 0] = time.split(":").map(Number);
+
+  return hour * 3600 + minute * 60 + second;
+}
+
+function isScheduleExpired(scheduledTime, currentTime) {
+  const delaySeconds =
+    timeToSeconds(currentTime) - timeToSeconds(scheduledTime);
+
+  return delaySeconds > MAX_SCHEDULE_DELAY_SECONDS;
+}
+
+function handleTaskFailure(dailySchedule, error) {
+  const message = error?.message || "Terjadi kesalahan tidak diketahui";
+
+  const retryResult = markScheduleRetry(dailySchedule.id, message);
+
+  if (retryResult.retried) {
+    console.log(
+      `[RETRY] ` +
+        `schedule=${dailySchedule.id} ` +
+        `attempt=${retryResult.attempt_count}/` +
+        `${retryResult.max_attempts} ` +
+        `next=${retryResult.next_retry_at}`,
+    );
+
+    return {
+      status: "retry_scheduled",
+      message,
+      retry: retryResult,
+    };
+  }
+
+  if (retryResult.failed) {
+    console.log(
+      `[FAILED] ` +
+        `schedule=${dailySchedule.id} ` +
+        `attempt=${retryResult.attempt_count}/` +
+        `${retryResult.max_attempts}`,
+    );
+
+    return {
+      status: "failed",
+      message,
+      retry: retryResult,
+    };
+  }
+
+  /*
+   * Fallback apabila jadwal tidak ditemukan
+   * atau statusnya sudah bukan processing.
+   */
+  const failedResult = markScheduleFailed(dailySchedule.id, message);
+
+  console.log(
+    `[FAILED] ` +
+      `schedule=${dailySchedule.id} ` +
+      `fallbackChanges=${failedResult.changes}`,
+  );
+
+  return {
+    status: "failed",
+    message,
+    retry: retryResult,
   };
 }
 
@@ -48,7 +114,7 @@ function enqueueScheduleTask(dailySchedule, user) {
     return;
   }
 
-  addToQueue(async () => {
+  addToQueue(user.id, async () => {
     const { type } = dailySchedule;
 
     console.log(
@@ -62,24 +128,45 @@ function enqueueScheduleTask(dailySchedule, user) {
 
       if (result?.status === "skipped") {
         markScheduleSkipped(dailySchedule.id, message);
-      } else if (result?.status === "failed") {
-        markScheduleFailed(dailySchedule.id, message);
-      } else {
-        markScheduleSuccess(dailySchedule.id, message);
+
+        return result;
       }
+
+      if (result?.status === "failed") {
+        return handleTaskFailure(dailySchedule, new Error(message));
+      }
+
+      if (result?.status === "success") {
+        markScheduleSuccess(dailySchedule.id, message);
+
+        return result;
+      }
+
+      return handleTaskFailure(
+        dailySchedule,
+        new Error(`Status automation tidak dikenal: ${result?.status}`),
+      );
     } catch (err) {
-      markScheduleFailed(dailySchedule.id, err.message);
+      console.log(
+        `[X] Task error ` +
+          `schedule=${dailySchedule.id} ` +
+          `user=${user.id}:`,
+        err.message,
+      );
 
-      console.log(`[X] Task error user=${user.id}:`, err.message);
+      return handleTaskFailure(dailySchedule, err);
+    } finally {
+      console.log(
+        `[${nowLog()}] [DONE] schedule=${dailySchedule.id} ${type} user=${user.id}`,
+      );
     }
-
-    console.log(
-      `[${nowLog()}] [DONE] schedule=${dailySchedule.id} ${type} user=${user.id}`,
-    );
   }).catch((err) => {
-    markScheduleFailed(dailySchedule.id, err.message);
+    console.log(
+      `[X] Queue error ` + `schedule=${dailySchedule.id} ` + `user=${user.id}:`,
+      err.message,
+    );
 
-    console.log(`[X] Queue error schedule=${dailySchedule.id}:`, err.message);
+    handleTaskFailure(dailySchedule, err);
   });
 }
 
@@ -88,57 +175,43 @@ async function runSchedulerTick() {
 
   const scheduleDate = getJakartaDate(now);
   const currentTime = getJakartaTime(now);
-
-  /*
-   * Memastikan jadwal hari ini sudah tersedia.
-   *
-   * Aman dipanggil setiap menit karena database
-   * memiliki UNIQUE(user_id, schedule_date, type).
-   */
-  const generation = generateDailySchedules(now);
-
-  if (generation.generated > 0) {
-    console.log(
-      `[SCHEDULER] ${generation.generated} jadwal dibuat untuk ${scheduleDate}`,
-    );
-  }
-
-  const users = await Promise.resolve(findAllUsers());
+  const currentDateTime = `${scheduleDate} ${currentTime}`;
 
   const pendingSchedules = await Promise.resolve(
-    findPendingSchedulesByDate(scheduleDate),
+    findPendingSchedulesByDate(scheduleDate, currentDateTime),
   );
-
-  /*
-   * Membuat pencarian pengguna berdasarkan ID
-   * agar tidak perlu melakukan query per jadwal.
-   */
-  const usersById = new Map(users.map((user) => [user.id, user]));
 
   for (const dailySchedule of pendingSchedules) {
     /*
      * Jadwal yang waktunya belum tiba tidak
      * dijalankan.
      *
-     * Format HH:mm dapat dibandingkan langsung
+     * Format HH:mm:ss dapat dibandingkan langsung
      * selama selalu memakai dua digit.
      */
     if (dailySchedule.scheduled_time > currentTime) {
       continue;
     }
 
-    const user = usersById.get(dailySchedule.user_id);
+    const isRetry = dailySchedule.attempt_count > 0;
 
-    if (!user) {
-      markScheduleFailed(
-        dailySchedule.id,
-        `User ${dailySchedule.user_id} tidak ditemukan`,
-      );
+    if (
+      !isRetry &&
+      isScheduleExpired(dailySchedule.scheduled_time, currentTime)
+    ) {
+      const lockResult = markScheduleProcessing(dailySchedule.id);
+
+      if (lockResult.changes > 0) {
+        markScheduleSkipped(
+          dailySchedule.id,
+          `Jadwal kedaluwarsa pada ${dailySchedule.scheduled_time}`,
+        );
+      }
 
       continue;
     }
 
-    enqueueScheduleTask(dailySchedule, user);
+    enqueueScheduleTask(dailySchedule, dailySchedule.user);
   }
 }
 
@@ -163,22 +236,19 @@ function startScheduler() {
    * berstatus processing, kembalikan jadwal tersebut
    * menjadi pending saat startup.
    */
-  resetProcessingSchedules(scheduleDate);
+  const recoveryResult = resetProcessingSchedules(scheduleDate);
 
-  /*
-   * Membuat jadwal ketika aplikasi dimulai.
-   *
-   * Ini penting apabila aplikasi tidak berjalan
-   * tepat pada pergantian hari.
-   */
-  const generation = generateDailySchedules();
-
-  console.log(
-    `[SCHEDULER] Startup ${scheduleDate}: generated=${generation.generated}, skipped=${generation.skipped}`,
-  );
+  if (recoveryResult.total > 0) {
+    console.log(
+      `[RECOVERY] ` +
+        `date=${scheduleDate} ` +
+        `pending=${recoveryResult.recovered} ` +
+        `failed=${recoveryResult.failed}`,
+    );
+  }
 
   const job = schedule(
-    "* * * * *",
+    "* * * * * *",
     async () => {
       /*
        * Mencegah cron tick berikutnya berjalan
@@ -206,7 +276,7 @@ function startScheduler() {
   jobs.push(job);
   isRunning = true;
 
-  console.log("⚡ Scheduler started");
+  console.log("⚡ Schedule executor started");
 }
 
 function restartScheduler() {
@@ -217,7 +287,9 @@ function restartScheduler() {
 
 function stopScheduler() {
   clearJobs();
+
   isRunning = false;
+  isTickRunning = false;
 
   console.log("🛑 Scheduler stopped");
 }

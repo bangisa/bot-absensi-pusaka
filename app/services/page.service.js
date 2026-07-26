@@ -32,15 +32,40 @@ export async function getPage(user = null) {
 }
 
 export async function releasePage(page, context) {
+  let contextReleased = false;
+
   try {
-    if (context) {
+    if (page && !page.isClosed()) {
       detachPageListeners(page);
 
-      await context.close();
-
-      decrementContexts();
+      await page.close({
+        runBeforeUnload: false,
+      });
     }
   } catch (err) {
-    console.log("[X] Gagal close context:", err.message);
+    console.log("[X] Gagal close page:", err.message);
+  }
+
+  try {
+    if (context) {
+      await context.close();
+      contextReleased = true;
+    }
+  } catch (err) {
+    const message = err?.message ?? "";
+
+    const alreadyClosed =
+      message.toLowerCase().includes("closed") ||
+      message.toLowerCase().includes("detached");
+
+    if (!alreadyClosed) {
+      console.log("[X] Gagal close context:", message);
+    }
+
+    contextReleased = true;
+  } finally {
+    if (contextReleased) {
+      decrementContexts();
+    }
   }
 }

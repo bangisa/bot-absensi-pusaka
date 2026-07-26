@@ -9,6 +9,21 @@ console.log("📁 DB PATH:", dbPath);
 
 let db;
 
+function ensureColumn(tableName, columnName, definition) {
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
+
+  const exists = columns.some((column) => column.name === columnName);
+
+  if (!exists) {
+    db.prepare(
+      `ALTER TABLE ${tableName}
+       ADD COLUMN ${columnName} ${definition}`,
+    ).run();
+
+    console.log(`[DB] Kolom ${tableName}.${columnName} ditambahkan`);
+  }
+}
+
 try {
   db = new Database(dbPath);
 
@@ -75,6 +90,11 @@ try {
           ),
         executed_at TEXT,
         message TEXT,
+
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        max_attempts INTEGER NOT NULL DEFAULT 3,
+        next_retry_at TEXT,
+
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
         FOREIGN KEY (user_id)
@@ -85,6 +105,16 @@ try {
       )
     `,
   ).run();
+
+  ensureColumn(
+    "daily_schedules",
+    "attempt_count",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+
+  ensureColumn("daily_schedules", "max_attempts", "INTEGER NOT NULL DEFAULT 3");
+
+  ensureColumn("daily_schedules", "next_retry_at", "TEXT");
 
   db.prepare(
     `
@@ -133,6 +163,18 @@ try {
         scheduled_time
       )
     `,
+  ).run();
+
+  db.prepare(
+    `
+      CREATE INDEX IF NOT EXISTS idx_daily_schedules_retry
+      ON daily_schedules(
+        schedule_date,
+        status,
+        next_retry_at,
+        scheduled_time
+      )
+  `,
   ).run();
 } catch (err) {
   console.error("❌ Gagal inisialisasi database:", err.message);

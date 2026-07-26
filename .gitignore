@@ -5,6 +5,9 @@
 .agents/
 .vscode/
 
+# Test
+app/test/
+
 # Node
 node_modules/
 npm-debug.log*

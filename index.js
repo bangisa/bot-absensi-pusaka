@@ -19,7 +19,13 @@ import {
 } from "./app/routes/index.js";
 
 // SERVICES
-import { startScheduler, getSchedulerStatus } from "./app/services/index.js";
+import {
+  startScheduler,
+  stopScheduler,
+  getSchedulerStatus,
+  startDailyScheduleGenerator,
+  stopDailyScheduleGenerator,
+} from "./app/services/index.js";
 
 const app = express();
 const PORT = appConfig.port;
@@ -87,6 +93,15 @@ process.on("uncaughtException", (err) => {
   console.error("❌ Uncaught Exception:", err);
 });
 
+process.on("SIGINT", () => {
+  console.log("\nMenghentikan aplikasi...");
+
+  stopDailyScheduleGenerator();
+  stopScheduler();
+
+  process.exit(0);
+});
+
 // 🚀 START SERVER
 app.listen(PORT, "127.0.0.1", () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
@@ -94,6 +109,7 @@ app.listen(PORT, "127.0.0.1", () => {
   const status = getSchedulerStatus();
   if (appConfig.autoStart && !status.running) {
     console.log("⚡ Auto starting scheduler...");
+    startDailyScheduleGenerator();
     startScheduler();
   }
 });
