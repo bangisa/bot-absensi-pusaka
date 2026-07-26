@@ -15,7 +15,13 @@ async function openPusaka(type, user) {
 
   try {
     ({ page, context } = await getPage(user));
-    if (!page || !context) return;
+
+    if (!page || !context) {
+      return {
+        status: "failed",
+        message: "Browser page atau context gagal dibuat",
+      };
+    }
 
     page.setDefaultTimeout(30000);
     page.setDefaultNavigationTimeout(30000);
@@ -37,7 +43,9 @@ async function openPusaka(type, user) {
     }
 
     // EKSEKUSI
-    await handlePresenceFlow(page, type, user, startTime, now);
+    const result = await handlePresenceFlow(page, type, user, startTime, now);
+
+    return result;
   } catch (err) {
     console.log("[X] Fatal:", err.message);
 
@@ -48,6 +56,11 @@ async function openPusaka(type, user) {
       status: "failed",
       message: err.message,
     });
+
+    return {
+      status: "failed",
+      message: err.message,
+    };
   } finally {
     await releasePage(page, context);
   }

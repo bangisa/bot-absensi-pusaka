@@ -2,6 +2,7 @@
 .env
 .env.*
 
+.agents/
 .vscode/
 
 # Node

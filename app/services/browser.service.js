@@ -12,15 +12,28 @@ async function getBrowser() {
 
   if (!browserInstance) {
     browserInstance = await launch({
+      // executablePath: "/usr/bin/chromium",
       headless: browserConfig.headless,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
+        "--disable-background-networking",
         "--disable-accelerated-2d-canvas",
+        "--disable-background-timer-throttling",
+        "--disable-renderer-backgrounding",
+        "--disable-sync",
+        "--mute-audio",
         "--no-first-run",
         "--no-zygote",
         "--disable-gpu",
+        "--disable-extensions",
+        "--disable-default-apps",
+        "--disable-features=Translate,BackForwardCache",
+        "--disable-ipc-flooding-protection",
+        "--metrics-recording-only",
+        "--password-store=basic",
+        "--use-mock-keychain",
       ],
       defaultViewport: {
         width: 1280,

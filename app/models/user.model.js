@@ -81,6 +81,13 @@ function removeUser(id) {
     WHERE user_id = ?
   `,
   ).run(id);
+
+  db.prepare(
+    `
+    DELETE FROM daily_schedules
+    WHERE user_id = ?
+  `,
+  ).run(id);
   return db
     .prepare(
       `

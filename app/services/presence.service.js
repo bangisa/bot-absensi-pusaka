@@ -192,34 +192,111 @@ async function handleConfirm(page) {
 
 async function handlePresenceFlow(page, type, user, startTime, now) {
   const status = await getPresenceStatus(page);
+
   console.log("[DEBUG STATUS]", status);
 
-  if (type === "masuk") {
-    if (!status.hasMasukButton) {
-      return logSkip("Sudah presensi masuk", user, type, startTime, now);
-    }
+  /*
+   * Validasi tipe presensi.
+   */
+  if (type !== "masuk" && type !== "pulang") {
+    const message = `Tipe presensi tidak valid: ${type}`;
+
+    logFail(message, user, type, startTime, now);
+
+    return {
+      status: "failed",
+      message,
+    };
   }
 
-  if (type === "pulang") {
-    if (!status.hasPulangButton) {
-      return logSkip("Sudah presensi pulang", user, type, startTime, now);
-    }
+  /*
+   * Tombol masuk sudah tidak tersedia.
+   * Hal ini dianggap skipped karena kemungkinan
+   * pengguna memang sudah melakukan presensi masuk.
+   */
+  if (type === "masuk" && !status.hasMasukButton) {
+    const message = "Sudah presensi masuk";
+
+    logSkip(message, user, type, startTime, now);
+
+    return {
+      status: "skipped",
+      message,
+    };
+  }
+
+  /*
+   * Tombol pulang sudah tidak tersedia.
+   */
+  if (type === "pulang" && !status.hasPulangButton) {
+    const message = "Sudah presensi pulang";
+
+    logSkip(message, user, type, startTime, now);
+
+    return {
+      status: "skipped",
+      message,
+    };
   }
 
   const result = await clickWithRetry(page, type);
 
+  /*
+   * Tombol berhasil diklik.
+   */
   if (result.status === "clicked") {
     await sleep(3000);
-    await handleConfirm(page);
 
-    return logSuccess(type, user, startTime, now);
+    const confirmed = await handleConfirm(page);
+
+    /*
+     * Jangan mencatat sukses jika modal konfirmasi
+     * atau indikator keberhasilan tidak ditemukan.
+     */
+    if (!confirmed) {
+      const message = "Konfirmasi presensi tidak berhasil";
+
+      logFail(message, user, type, startTime, now);
+
+      return {
+        status: "failed",
+        message,
+      };
+    }
+
+    logSuccess(type, user, startTime, now);
+
+    return {
+      status: "success",
+      message: `Presensi ${type} berhasil`,
+    };
   }
 
+  /*
+   * Tombol ditemukan tetapi sedang disabled.
+   */
   if (result.status === "disabled") {
-    return logSkip("Tombol disabled", user, type, startTime, now);
+    const message = "Tombol presensi disabled";
+
+    logSkip(message, user, type, startTime, now);
+
+    return {
+      status: "skipped",
+      message,
+    };
   }
 
-  return logFail("Tombol tidak ditemukan", user, type, startTime, now);
+  /*
+   * Tombol tidak ditemukan setelah seluruh retry.
+   */
+  const message = "Tombol presensi tidak ditemukan";
+
+  logFail(message, user, type, startTime, now);
+
+  return {
+    status: "failed",
+    message,
+  };
 }
 
 export {

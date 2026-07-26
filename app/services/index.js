@@ -2,6 +2,7 @@ export * from "./auth.service.js";
 export * from "./automation.service.js";
 export * from "./browser.service.js";
 export * from "./cookies.service.js";
+export * from "./daily-schedule.service.js";
 export * from "./execution.guard.js";
 export * from "./page.service.js";
 export * from "./presence.service.js";
