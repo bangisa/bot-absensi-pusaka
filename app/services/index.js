@@ -1,4 +1,4 @@
-export * from "./auth.service.js";
+﻿export * from "./auth.service.js";
 export * from "./automation.service.js";
 export * from "./browser.service.js";
 export * from "./cookies.service.js";
@@ -10,3 +10,5 @@ export * from "./presence.service.js";
 export * from "./queue.service.js";
 export * from "./scheduler.service.js";
 export * from "./user.service.js";
+export * from "./system-memory.service.js";
+

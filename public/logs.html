@@ -1,44 +1,78 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
     <title>Logs Bot</title>
-
     <link rel="stylesheet" href="/css/style.css" />
   </head>
   <body>
     <div class="container">
-      <h1>📄 Logs Bot</h1>
+      <header class="topbar">
+        <a class="app-title" href="/">Bot Absensi Pusaka</a>
+        <nav class="nav-links" aria-label="Navigasi utama">
+          <a href="/">Dashboard</a>
+          <a href="/users.html">Users</a>
+          <a class="active" href="/logs.html">Logs</a>
+        </nav>
+      </header>
 
-      <div class="card table-wrapper">
-        <table class="logs-table">
-          <thead>
-            <tr>
-              <th>Waktu</th>
-              <th>User</th>
-              <th>Tipe</th>
-              <th>Status</th>
-              <th>Pesan</th>
-            </tr>
-          </thead>
+      <main>
+        <section class="page-header">
+          <h1>Logs</h1>
+          <button id="refresh-logs" class="btn secondary" type="button">Refresh</button>
+        </section>
 
-          <tbody id="logs"></tbody>
-        </table>
-      </div>
+        <section class="filters" aria-label="Filter log">
+          <label>
+            <span>Status</span>
+            <select id="status-filter">
+              <option value="all">Semua</option>
+              <option value="success">Success</option>
+              <option value="failed">Failed</option>
+              <option value="skipped">Skipped</option>
+            </select>
+          </label>
+          <label>
+            <span>Tipe</span>
+            <select id="type-filter">
+              <option value="all">Semua</option>
+              <option value="masuk">Masuk</option>
+              <option value="pulang">Pulang</option>
+            </select>
+          </label>
+          <label class="search-field">
+            <span>Cari</span>
+            <input type="search" id="log-search" placeholder="User atau pesan" />
+          </label>
+        </section>
 
-      <div class="footer-link">
-        <a href="/">⬅ Kembali</a>
-      </div>
+        <section class="panel table-panel">
+          <div class="table-meta">
+            <p id="logs-summary" class="muted">Memuat...</p>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table logs-table">
+              <thead>
+                <tr>
+                  <th>Waktu</th>
+                  <th>User</th>
+                  <th>Tipe</th>
+                  <th>Status</th>
+                  <th>Pesan</th>
+                </tr>
+              </thead>
+              <tbody id="logs"></tbody>
+            </table>
+          </div>
+          <div class="pagination" aria-label="Paginasi logs">
+            <button id="logs-prev" class="btn secondary" type="button">Prev</button>
+            <span id="logs-page-info">-</span>
+            <button id="logs-next" class="btn secondary" type="button">Next</button>
+          </div>
+        </section>
+      </main>
     </div>
-
-    <footer class="app-footer">
-      <p>
-        Bot Absensi Pusaka • By
-        <a href="https://isacool.my.id/" target="_blank"> @isacool </a>
-      </p>
-    </footer>
 
     <script type="module" src="/js/logs.js"></script>
   </body>

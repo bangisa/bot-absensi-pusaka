@@ -1,68 +1,79 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
     <title>Bot Absensi Pusaka</title>
-
     <link rel="stylesheet" href="/css/style.css" />
   </head>
   <body>
     <div class="container">
-      <h1>🤖 Bot Absensi Pusaka</h1>
+      <header class="topbar">
+        <a class="app-title" href="/">Bot Absensi Pusaka</a>
+        <nav class="nav-links" aria-label="Navigasi utama">
+          <a class="active" href="/">Dashboard</a>
+          <a href="/users.html">Users</a>
+          <a href="/logs.html">Logs</a>
+        </nav>
+      </header>
 
-      <div class="status-card">
-        <h2>Status Scheduler</h2>
+      <main>
+        <section class="page-header">
+          <h1>Dashboard</h1>
+          <div id="scheduler-status" class="status-pill offline">STOPPED</div>
+        </section>
 
-        <div id="scheduler-status" class="status offline">🔴 STOPPED</div>
-      </div>
+        <section class="panel split-panel">
+          <div>
+            <h2>Scheduler</h2>
+            <p id="scheduler-detail" class="muted">Memuat...</p>
+          </div>
+          <div class="button-group">
+            <button id="start-btn" class="btn primary" type="button">Start</button>
+            <button id="stop-btn" class="btn danger" type="button">Stop</button>
+          </div>
+        </section>
 
-      <div class="action-group">
-        <button id="start-btn">▶ Start Scheduler</button>
+        <p id="dashboard-message" class="notice" hidden></p>
 
-        <button id="stop-btn" class="danger">■ Stop Scheduler</button>
-      </div>
-
-      <div class="health-grid">
-        <div class="card">
-          <h3>Queue</h3>
-
-          <p id="queue-status">-</p>
-        </div>
-
-        <div class="card">
-          <h3>Browser</h3>
-
-          <p id="browser-status">-</p>
-        </div>
-
-        <div class="card">
-          <h3>Memory</h3>
-
-          <p id="memory-status">-</p>
-        </div>
-
-        <div class="card">
-          <h3>Uptime</h3>
-
-          <p id="uptime-status">-</p>
-        </div>
-      </div>
-
-      <div class="footer-link">
-        <a href="/users.html"> 👥 User Management </a> ||
-        <a href="/logs.html">📄 Lihat Logs</a>
-      </div>
+        <section class="health-grid" aria-label="Status sistem">
+          <article class="card">
+            <span>Generator</span>
+            <strong id="generator-status">-</strong>
+            <small id="generator-detail">-</small>
+          </article>
+          <article class="card">
+            <span>Queue</span>
+            <strong id="queue-status">-</strong>
+            <small id="queue-detail">-</small>
+          </article>
+          <article class="card">
+            <span>Browser</span>
+            <strong id="browser-status">-</strong>
+            <small id="browser-detail">-</small>
+          </article>
+          <article class="card">
+            <span>Memory</span>
+            <strong id="memory-status">-</strong>
+            <small id="memory-detail">-</small>
+          </article>
+          <article class="card">
+            <span>User Aktif</span>
+            <strong id="active-users-status">-</strong>
+            <small id="active-users-detail">-</small>
+          </article>
+          <article class="card">
+            <span>Uptime</span>
+            <strong id="uptime-status">-</strong>
+            <small id="uptime-detail">-</small>
+          </article>
+        </section>
+      </main>
     </div>
-
-    <footer class="app-footer">
-      <p>
-        Bot Absensi Pusaka • By
-        <a href="https://isacool.my.id/" target="_blank"> @isacool </a>
-      </p>
-    </footer>
 
     <script type="module" src="/js/dashboard.js"></script>
   </body>
 </html>
+
+
+

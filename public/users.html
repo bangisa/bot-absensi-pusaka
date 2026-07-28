@@ -1,74 +1,77 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
     <title>User Management</title>
-
     <link rel="stylesheet" href="/css/style.css" />
   </head>
-
   <body>
     <div class="container">
-      <h1>👥 User Management</h1>
+      <header class="topbar">
+        <a class="app-title" href="/">Bot Absensi Pusaka</a>
+        <nav class="nav-links" aria-label="Navigasi utama">
+          <a href="/">Dashboard</a>
+          <a class="active" href="/users.html">Users</a>
+          <a href="/logs.html">Logs</a>
+        </nav>
+      </header>
 
-      <div class="card">
-        <form method="post" id="user-form" class="user-form">
-          <input type="text" id="username" placeholder="Username*" required />
+      <main>
+        <section class="page-header">
+          <h1>Users</h1>
+          <p id="users-summary" class="muted">Memuat...</p>
+        </section>
 
-          <input
-            type="password"
-            id="password"
-            placeholder="Password*"
-            required
-          />
+        <section class="panel">
+          <h2>Tambah User</h2>
+          <form method="post" id="user-form" class="user-form">
+            <label>
+              <span>Username</span>
+              <input type="text" id="username" autocomplete="username" required />
+            </label>
+            <label>
+              <span>Password</span>
+              <input type="password" id="password" autocomplete="new-password" required />
+            </label>
+            <label>
+              <span>Latitude</span>
+              <input type="number" step="any" id="lat" value="-6.62949867534904" />
+            </label>
+            <label>
+              <span>Longitude</span>
+              <input type="number" step="any" id="lng" value="110.72249001053517" />
+            </label>
+            <div class="form-actions">
+              <button type="submit" class="btn primary">Tambah</button>
+              <p id="form-message" class="form-message" aria-live="polite"></p>
+            </div>
+          </form>
+        </section>
 
-          <input
-            type="text"
-            id="lat"
-            placeholder="Latitude"
-            value="-6.62949867534904"
-          />
-
-          <input
-            type="text"
-            id="lng"
-            placeholder="Longitude"
-            value="110.72249001053517"
-          />
-
-          <button type="submit">Tambah User</button>
-        </form>
-      </div>
-
-      <div class="card table-wrapper">
-        <table class="users-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Username</th>
-              <th>Latitude</th>
-              <th>Longitude</th>
-              <th>Aksi</th>
-            </tr>
-          </thead>
-
-          <tbody id="users-list"></tbody>
-        </table>
-      </div>
-
-      <div class="footer-link">
-        <a href="/">⬅ Dashboard</a>
-      </div>
+        <section class="panel table-panel">
+          <div class="table-wrapper">
+            <table class="data-table users-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Username</th>
+                  <th>Latitude</th>
+                  <th>Longitude</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="users-list"></tbody>
+            </table>
+          </div>
+          <div class="pagination" aria-label="Paginasi users">
+            <button id="users-prev" class="btn secondary" type="button">Prev</button>
+            <span id="users-page-info">-</span>
+            <button id="users-next" class="btn secondary" type="button">Next</button>
+          </div>
+        </section>
+      </main>
     </div>
-
-    <footer class="app-footer">
-      <p>
-        Bot Absensi Pusaka • By
-        <a href="https://isacool.my.id/" target="_blank"> @isacool </a>
-      </p>
-    </footer>
 
     <script type="module" src="/js/users.js"></script>
   </body>

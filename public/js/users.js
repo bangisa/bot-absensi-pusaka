@@ -1,102 +1,195 @@
-import { getUsers, createUser, deleteUser } from "./api.js";
+﻿import { getUsers, createUser, deleteUser } from "./api.js";
+
+const PAGE_SIZE = 10;
 
 const usersList = document.getElementById("users-list");
-
+const usersSummary = document.getElementById("users-summary");
 const form = document.getElementById("user-form");
+const formMessage = document.getElementById("form-message");
+const submitButton = form.querySelector("button[type='submit']");
+const prevButton = document.getElementById("users-prev");
+const nextButton = document.getElementById("users-next");
+const pageInfo = document.getElementById("users-page-info");
 
-function createUserRow(user) {
+let usersData = [];
+let currentPage = 1;
+
+function setMessage(message, type = "info") {
+  formMessage.textContent = message;
+  formMessage.style.borderColor = type === "error" ? "var(--red)" : "var(--green)";
+  formMessage.style.color = type === "error" ? "#f87171" : "#34d399";
+}
+
+function clearMessage() {
+  formMessage.textContent = "";
+}
+
+function setLoading(loading) {
+  submitButton.disabled = loading;
+  submitButton.textContent = loading ? "Menyimpan..." : "Tambah";
+}
+
+function appendCell(row, value, className = "") {
+  const cell = document.createElement("td");
+  if (className) cell.className = className;
+  cell.textContent = value ?? "-";
+  row.appendChild(cell);
+  return cell;
+}
+
+function createEmptyRow(message, className = "row-empty") {
   const row = document.createElement("tr");
+  row.className = className;
 
-  row.innerHTML = `
-    <td>${user.id}</td>
-
-    <td>${user.username}</td>
-
-    <td>${user.latitude}</td>
-
-    <td>${user.longitude}</td>
-
-    <td>
-      <button class="danger delete-btn">
-        Hapus
-      </button>
-    </td>
-  `;
-
-  row.querySelector(".delete-btn").addEventListener("click", async () => {
-    if (!confirm("Hapus user?")) return;
-
-    try {
-      await deleteUser(user.id);
-
-      await loadUsers();
-    } catch (err) {
-      console.error(err);
-
-      alert(err.message);
-    }
-  });
+  const cell = document.createElement("td");
+  cell.colSpan = 5;
+  cell.textContent = message;
+  row.appendChild(cell);
 
   return row;
 }
 
-async function loadUsers() {
-  try {
-    const users = await getUsers();
+function createUserRow(user) {
+  const row = document.createElement("tr");
 
-    usersList.innerHTML = "";
+  appendCell(row, user.id);
 
-    if (!users.length) {
-      usersList.innerHTML = `
-        <tr>
-            <td colspan="5">
-            Belum ada user
-            </td>
-        </tr>
-    `;
+  const usernameCell = document.createElement("td");
+  usernameCell.className = "user-cell";
 
-      return;
+  const username = document.createElement("strong");
+  username.textContent = user.username;
+
+  const autoLogin = document.createElement("small");
+  autoLogin.textContent = Number(user.auto_login ?? 1) === 1 ? "Auto login aktif" : "Auto login nonaktif";
+
+  usernameCell.append(username, autoLogin);
+  row.appendChild(usernameCell);
+
+  appendCell(row, user.latitude);
+  appendCell(row, user.longitude);
+
+  const actionCell = document.createElement("td");
+  const deleteButton = document.createElement("button");
+  deleteButton.className = "btn danger";
+  deleteButton.type = "button";
+  deleteButton.textContent = "Hapus";
+
+  deleteButton.addEventListener("click", async () => {
+    if (!confirm(`Hapus user ${user.username}?`)) return;
+
+    try {
+      deleteButton.disabled = true;
+      deleteButton.textContent = "Menghapus...";
+      await deleteUser(user.id);
+      await loadUsers();
+      setMessage(`User ${user.username} dihapus.`);
+    } catch (err) {
+      console.error(err);
+      setMessage(err.message || "Gagal menghapus user", "error");
+      deleteButton.disabled = false;
+      deleteButton.textContent = "Hapus";
     }
+  });
 
-    users.forEach((user) => {
+  actionCell.appendChild(deleteButton);
+  row.appendChild(actionCell);
+
+  return row;
+}
+
+function getTotalPages() {
+  return Math.max(1, Math.ceil(usersData.length / PAGE_SIZE));
+}
+
+function renderUsers() {
+  const totalPages = getTotalPages();
+  currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+
+  usersList.replaceChildren();
+  usersSummary.textContent = `${usersData.length} user`;
+
+  if (!usersData.length) {
+    usersList.appendChild(createEmptyRow("Belum ada user."));
+  } else {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageItems = usersData.slice(start, start + PAGE_SIZE);
+
+    pageItems.forEach((user) => {
       usersList.appendChild(createUserRow(user));
     });
-  } catch (err) {
-    console.error(err);
+  }
 
-    usersList.innerHTML = `
-        <tr>
-            <td colspan="5">
-            Belum ada user
-            </td>
-        </tr>
-    `;
+  pageInfo.textContent = `Hal ${currentPage}/${totalPages}`;
+  prevButton.disabled = currentPage <= 1;
+  nextButton.disabled = currentPage >= totalPages;
+}
+
+function getFormData() {
+  return {
+    username: document.getElementById("username").value.trim(),
+    password: document.getElementById("password").value,
+    latitude: document.getElementById("lat").value.trim(),
+    longitude: document.getElementById("lng").value.trim(),
+  };
+}
+
+function validateCoordinates(data) {
+  if (data.latitude && (Number(data.latitude) < -90 || Number(data.latitude) > 90)) {
+    throw new Error("Latitude tidak valid.");
+  }
+
+  if (data.longitude && (Number(data.longitude) < -180 || Number(data.longitude) > 180)) {
+    throw new Error("Longitude tidak valid.");
   }
 }
 
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
+async function loadUsers() {
   try {
-    await createUser({
-      username: document.getElementById("username").value,
+    usersSummary.textContent = "Memuat...";
+    usersList.replaceChildren(createEmptyRow("Memuat..."));
 
-      password: document.getElementById("password").value,
-
-      latitude: document.getElementById("lat").value,
-
-      longitude: document.getElementById("lng").value,
-    });
-
-    form.reset();
-
-    await loadUsers();
-
-    alert("User berhasil ditambahkan");
+    usersData = await getUsers();
+    renderUsers();
   } catch (err) {
     console.error(err);
+    usersSummary.textContent = "Gagal memuat";
+    usersList.replaceChildren(createEmptyRow(err.message || "Gagal memuat user.", "row-error"));
+  }
+}
 
-    alert(err.message);
+prevButton.addEventListener("click", () => {
+  currentPage -= 1;
+  renderUsers();
+});
+
+nextButton.addEventListener("click", () => {
+  currentPage += 1;
+  renderUsers();
+});
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  try {
+    clearMessage();
+    const data = getFormData();
+    validateCoordinates(data);
+    setLoading(true);
+
+    await createUser(data);
+    form.reset();
+    document.getElementById("lat").value = "-6.62949867534904";
+    document.getElementById("lng").value = "110.72249001053517";
+    currentPage = 1;
+
+    await loadUsers();
+    setMessage("User ditambahkan.");
+  } catch (err) {
+    console.error(err);
+    setMessage(err.message || "Gagal menambah user", "error");
+  } finally {
+    setLoading(false);
   }
 });
 

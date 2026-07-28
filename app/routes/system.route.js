@@ -1,4 +1,4 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 
 import {
   startScheduler,
@@ -6,6 +6,7 @@ import {
   getSchedulerStatus,
   getQueueStatus,
   getBrowserStatus,
+  getProcessTreeMemory,
   startDailyScheduleGenerator,
   stopDailyScheduleGenerator,
   getDailyScheduleGeneratorStatus,
@@ -61,12 +62,15 @@ router.post("/scheduler/stop", (req, res) => {
 });
 
 // HEALTHCHECK
-router.get("/health", (req, res) => {
+router.get("/health", async (req, res) => {
+  const browser = getBrowserStatus();
+
   res.json({
     scheduler: getSchedulerStatus(),
     generator: getDailyScheduleGeneratorStatus(),
     queue: getQueueStatus(),
-    browser: getBrowserStatus(),
+    browser,
+    botMemory: await getProcessTreeMemory([process.pid, browser.pid]),
     memory: process.memoryUsage(),
     uptime: process.uptime(),
   });

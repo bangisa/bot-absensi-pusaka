@@ -1,4 +1,4 @@
-import { launch } from "puppeteer";
+﻿import { launch } from "puppeteer";
 import { browserConfig } from "../config/index.js";
 
 let browserInstance = null;
@@ -67,6 +67,8 @@ function getBrowserStatus() {
 
     activeContexts,
 
+    pid: browserInstance?.process()?.pid ?? null,
+
     headless: browserConfig.headless,
 
     launchedAt,
@@ -76,3 +78,5 @@ function getBrowserStatus() {
 }
 
 export { getBrowser, getBrowserStatus, incrementContexts, decrementContexts };
+
+
