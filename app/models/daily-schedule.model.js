@@ -1,7 +1,7 @@
 import db from "../../database/db.js";
 import { nowSQL } from "../helpers/index.js";
 
-function jakartaDateTimeAfter(seconds) {
+function getJakartaDateTimeAfter(seconds) {
   const date = new Date(Date.now() + seconds * 1000);
 
   const parts = new Intl.DateTimeFormat("en-CA", {
