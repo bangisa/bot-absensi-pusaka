@@ -1,4 +1,4 @@
-import db from "../../database/db.js";
+﻿import db from "../../database/db.js";
 import { nowSQL } from "../helpers/index.js";
 
 function getJakartaDateTimeAfter(seconds) {
@@ -352,6 +352,42 @@ function markScheduleRetry(
  * Digunakan ketika aplikasi sebelumnya berhenti
  * sebelum proses presensi selesai.
  */
+function getDailyScheduleStatusSummary(scheduleDate) {
+  const summary = {
+    masuk: {
+      pending: 0,
+      processing: 0,
+    },
+    pulang: {
+      pending: 0,
+      processing: 0,
+    },
+  };
+
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        type,
+        status,
+        COUNT(1) AS total
+      FROM daily_schedules
+      WHERE schedule_date = ?
+        AND type IN ('masuk', 'pulang')
+        AND status IN ('pending', 'processing')
+      GROUP BY type, status
+      `,
+    )
+    .all(scheduleDate);
+
+  for (const row of rows) {
+    if (summary[row.type] && row.status in summary[row.type]) {
+      summary[row.type][row.status] = row.total;
+    }
+  }
+
+  return summary;
+}
 function resetProcessingSchedules(scheduleDate) {
   const recoverSchedules = db.transaction(() => {
     /*
@@ -413,6 +449,7 @@ export {
   findDailySchedule,
   findDailySchedulesByDate,
   findPendingSchedulesByDate,
+  getDailyScheduleStatusSummary,
   insertDailySchedule,
   markScheduleProcessing,
   markScheduleSuccess,
@@ -421,3 +458,5 @@ export {
   markScheduleRetry,
   resetProcessingSchedules,
 };
+
+

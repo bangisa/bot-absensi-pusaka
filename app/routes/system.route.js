@@ -7,12 +7,17 @@ import {
   getQueueStatus,
   getBrowserStatus,
   getProcessTreeMemory,
+  getJakartaDate,
   startDailyScheduleGenerator,
   stopDailyScheduleGenerator,
   getDailyScheduleGeneratorStatus,
 } from "../services/index.js";
 
-import { getLogs } from "../models/index.js";
+import {
+  findAllUsers,
+  getDailyScheduleStatusSummary,
+  getLogs,
+} from "../models/index.js";
 
 const router = Router();
 
@@ -64,12 +69,20 @@ router.post("/scheduler/stop", (req, res) => {
 // HEALTHCHECK
 router.get("/health", async (req, res) => {
   const browser = getBrowserStatus();
+  const scheduleDate = getJakartaDate();
 
   res.json({
     scheduler: getSchedulerStatus(),
     generator: getDailyScheduleGeneratorStatus(),
     queue: getQueueStatus(),
     browser,
+    users: {
+      total: findAllUsers().length,
+    },
+    dailySchedules: {
+      scheduleDate,
+      summary: getDailyScheduleStatusSummary(scheduleDate),
+    },
     botMemory: await getProcessTreeMemory([process.pid, browser.pid]),
     memory: process.memoryUsage(),
     uptime: process.uptime(),

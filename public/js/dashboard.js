@@ -10,8 +10,12 @@ const browserStatus = document.getElementById("browser-status");
 const browserDetail = document.getElementById("browser-detail");
 const memoryStatus = document.getElementById("memory-status");
 const memoryDetail = document.getElementById("memory-detail");
-const activeUsersStatus = document.getElementById("active-users-status");
-const activeUsersDetail = document.getElementById("active-users-detail");
+const totalUsersStatus = document.getElementById("total-users-status");
+const totalUsersDetail = document.getElementById("total-users-detail");
+const masukSchedulesStatus = document.getElementById("masuk-schedules-status");
+const masukSchedulesDetail = document.getElementById("masuk-schedules-detail");
+const pulangSchedulesStatus = document.getElementById("pulang-schedules-status");
+const pulangSchedulesDetail = document.getElementById("pulang-schedules-detail");
 const uptimeStatus = document.getElementById("uptime-status");
 const uptimeDetail = document.getElementById("uptime-detail");
 const dashboardMessage = document.getElementById("dashboard-message");
@@ -73,18 +77,27 @@ function renderScheduler(status) {
   schedulerDetail.textContent = running ? `${status.totalJobs ?? 0} job` : "Berhenti";
 }
 
+function renderScheduleCard(summary, statusElement, detailElement) {
+  const processing = summary?.processing ?? 0;
+  const pending = summary?.pending ?? 0;
+
+  statusElement.textContent = processing;
+  detailElement.textContent = `Diproses ${processing}, pending ${pending}`;
+}
+
 function renderHealth(health) {
   const generator = health.generator ?? {};
   const queue = health.queue ?? {};
   const browser = health.browser ?? {};
   const memory = health.memory ?? {};
   const botMemory = health.botMemory ?? {};
+  const scheduleSummary = health.dailySchedules?.summary ?? {};
 
   generatorStatus.textContent = generator.healthy ? "Sehat" : "Perlu cek";
   generatorDetail.textContent = `Terakhir: ${formatDateTime(generator.lastRunAt)}`;
 
   queueStatus.textContent = `${queue.running ?? 0}/${queue.maxConcurrent ?? 0} aktif`;
-  queueDetail.textContent = `Pending ${queue.pending ?? 0}`;
+  queueDetail.textContent = `Antrean ${queue.pending ?? 0}`;
 
   browserStatus.textContent = browser.connected ? "Connected" : "Idle";
   browserDetail.textContent = `Context aktif ${browser.activeContexts ?? 0}`;
@@ -92,8 +105,11 @@ function renderHealth(health) {
   memoryStatus.textContent = formatBytes(botMemory.totalRss ?? memory.rss ?? 0);
   memoryDetail.textContent = `Node ${formatBytes(botMemory.nodeRss ?? memory.rss ?? 0)}, browser ${formatBytes(botMemory.browserRss ?? 0)}, lain ${formatBytes(botMemory.otherRss ?? 0)}`;
 
-  activeUsersStatus.textContent = queue.activeUserCount ?? 0;
-  activeUsersDetail.textContent = `Pending ${queue.pending ?? 0}`;
+  totalUsersStatus.textContent = health.users?.total ?? 0;
+  totalUsersDetail.textContent = "Terdaftar";
+
+  renderScheduleCard(scheduleSummary.masuk, masukSchedulesStatus, masukSchedulesDetail);
+  renderScheduleCard(scheduleSummary.pulang, pulangSchedulesStatus, pulangSchedulesDetail);
 
   uptimeStatus.textContent = formatDuration(health.uptime);
   uptimeDetail.textContent = browser.launchedAt
@@ -145,5 +161,3 @@ stopBtn.addEventListener("click", async () => {
 
 refreshDashboard();
 setInterval(refreshDashboard, 5000);
-
-
