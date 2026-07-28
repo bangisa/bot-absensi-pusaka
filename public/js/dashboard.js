@@ -80,9 +80,10 @@ function renderScheduler(status) {
 function renderScheduleCard(summary, statusElement, detailElement) {
   const processing = summary?.processing ?? 0;
   const pending = summary?.pending ?? 0;
+  const completed = summary?.completed ?? 0;
 
   statusElement.textContent = processing;
-  detailElement.textContent = `Diproses ${processing}, pending ${pending}`;
+  detailElement.textContent = `Pending ${pending}, selesai ${completed}`;
 }
 
 function renderHealth(health) {

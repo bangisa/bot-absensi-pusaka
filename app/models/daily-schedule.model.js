@@ -357,10 +357,12 @@ function getDailyScheduleStatusSummary(scheduleDate) {
     masuk: {
       pending: 0,
       processing: 0,
+      completed: 0,
     },
     pulang: {
       pending: 0,
       processing: 0,
+      completed: 0,
     },
   };
 
@@ -374,14 +376,16 @@ function getDailyScheduleStatusSummary(scheduleDate) {
       FROM daily_schedules
       WHERE schedule_date = ?
         AND type IN ('masuk', 'pulang')
-        AND status IN ('pending', 'processing')
+        AND status IN ('pending', 'processing', 'success', 'skipped')
       GROUP BY type, status
       `,
     )
     .all(scheduleDate);
 
   for (const row of rows) {
-    if (summary[row.type] && row.status in summary[row.type]) {
+    if (row.status === "success" || row.status === "skipped") {
+      summary[row.type].completed += row.total;
+    } else if (summary[row.type] && row.status in summary[row.type]) {
       summary[row.type][row.status] = row.total;
     }
   }
