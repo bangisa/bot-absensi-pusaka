@@ -109,20 +109,20 @@ function getPulangRange(dayName) {
   if (dayName === "friday") {
     return {
       start: "12:15",
-      end: "13:15",
+      end: "12:45",
     };
   }
 
   if (dayName === "saturday") {
     return {
       start: "15:00",
-      end: "16:00",
+      end: "15:30",
     };
   }
 
   return {
     start: "14:30",
-    end: "15:30",
+    end: "15:00",
   };
 }
 
