@@ -392,6 +392,32 @@ function getDailyScheduleStatusSummary(scheduleDate) {
 
   return summary;
 }
+
+function countOpenDailySchedules(scheduleDate, type = null) {
+  const params = [scheduleDate];
+
+  let typeCondition = "";
+
+  if (type) {
+    typeCondition = "AND type = ?";
+    params.push(type);
+  }
+
+  const row = db
+    .prepare(
+      `
+      SELECT COUNT(1) AS total
+      FROM daily_schedules
+      WHERE schedule_date = ?
+        ${typeCondition}
+        AND status IN ('pending', 'processing')
+      `,
+    )
+    .get(...params);
+
+  return row?.total ?? 0;
+}
+
 function resetProcessingSchedules(scheduleDate) {
   const recoverSchedules = db.transaction(() => {
     /*
@@ -453,6 +479,7 @@ export {
   findDailySchedule,
   findDailySchedulesByDate,
   findPendingSchedulesByDate,
+  countOpenDailySchedules,
   getDailyScheduleStatusSummary,
   insertDailySchedule,
   markScheduleProcessing,

@@ -53,6 +53,28 @@ async function getBrowser() {
   return browserInstance;
 }
 
+async function closeBrowserIfIdle(reason = "idle") {
+  if (!browserInstance || !browserInstance.isConnected()) {
+    browserInstance = null;
+    launchedAt = null;
+    return false;
+  }
+
+  if (activeContexts > 0) {
+    return false;
+  }
+
+  console.log(`[BROWSER] Closing idle browser: ${reason}`);
+
+  const browser = browserInstance;
+  browserInstance = null;
+  launchedAt = null;
+
+  await browser.close();
+
+  return true;
+}
+
 function incrementContexts() {
   activeContexts++;
 }
@@ -77,6 +99,12 @@ function getBrowserStatus() {
   };
 }
 
-export { getBrowser, getBrowserStatus, incrementContexts, decrementContexts };
+export {
+  getBrowser,
+  closeBrowserIfIdle,
+  getBrowserStatus,
+  incrementContexts,
+  decrementContexts,
+};
 
 

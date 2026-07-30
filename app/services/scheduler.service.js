@@ -1,6 +1,7 @@
 import { schedule } from "node-cron";
 
 import {
+  countOpenDailySchedules,
   findPendingSchedulesByDate,
   markScheduleProcessing,
   markScheduleSuccess,
@@ -11,6 +12,7 @@ import {
 } from "../models/index.js";
 
 import { addToQueue } from "./queue.service.js";
+import { closeBrowserIfIdle } from "./browser.service.js";
 import { openPusaka } from "./automation.service.js";
 
 import { getJakartaDate, getJakartaTime } from "./daily-schedule.service.js";
@@ -159,6 +161,19 @@ function enqueueScheduleTask(dailySchedule, user) {
       console.log(
         `[${nowLog()}] [DONE] schedule=${dailySchedule.id} ${type} user=${user.id}`,
       );
+
+      const scheduleDate = getJakartaDate();
+      const openSchedules = countOpenDailySchedules(scheduleDate, type);
+
+      if (openSchedules === 0) {
+        try {
+          await closeBrowserIfIdle(
+            `semua jadwal ${type} ${scheduleDate} sudah selesai`,
+          );
+        } catch (err) {
+          console.log("[X] Gagal auto-close browser:", err.message);
+        }
+      }
     }
   }).catch((err) => {
     console.log(

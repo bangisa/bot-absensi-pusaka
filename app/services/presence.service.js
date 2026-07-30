@@ -82,17 +82,34 @@ async function getPresenceStatus(page) {
 
     console.log("[DEBUG BUTTONS]", JSON.stringify(buttons));
 
-    const hasMasukButton = buttons.some((t) => t.includes("presensi masuk"));
+    const isAlreadyMasukText = (text) =>
+      text.includes("sudah presensi masuk") ||
+      text.includes("anda sudah presensi masuk") ||
+      text.includes("sudah absen masuk");
 
-    const hasPulangButton = buttons.some((t) => t.includes("presensi pulang"));
+    const isAlreadyPulangText = (text) =>
+      text.includes("sudah presensi pulang") ||
+      text.includes("anda sudah presensi pulang") ||
+      text.includes("sudah absen pulang");
 
-    const alreadyFinished = buttons.some((t) =>
-      t.includes("anda sudah presensi hari ini"),
+    const alreadyMasuk = buttons.some(isAlreadyMasukText);
+
+    const alreadyPulang = buttons.some(isAlreadyPulangText);
+
+    const alreadyFinished = buttons.some(
+      (t) =>
+        t.includes("anda sudah presensi hari ini") ||
+        isAlreadyMasukText(t) ||
+        isAlreadyPulangText(t),
     );
 
     return {
-      hasMasukButton,
-      hasPulangButton,
+      hasMasukButton:
+        !alreadyMasuk && buttons.some((t) => t.includes("presensi masuk")),
+      hasPulangButton:
+        !alreadyPulang && buttons.some((t) => t.includes("presensi pulang")),
+      alreadyMasuk,
+      alreadyPulang,
       alreadyFinished,
 
       debug: buttons,
@@ -205,6 +222,33 @@ async function handlePresenceFlow(page, type, user, startTime, now) {
 
     return {
       status: "failed",
+      message,
+    };
+  }
+
+  /*
+   * Halaman Pusaka kadang menampilkan status sudah presensi
+   * dengan teks yang tetap mengandung "presensi masuk/pulang".
+   * Status ini harus diprioritaskan sebelum mencoba klik.
+   */
+  if (type === "masuk" && status.alreadyMasuk) {
+    const message = "Sudah presensi masuk";
+
+    logSkip(message, user, type, startTime, now);
+
+    return {
+      status: "skipped",
+      message,
+    };
+  }
+
+  if (type === "pulang" && status.alreadyPulang) {
+    const message = "Sudah presensi pulang";
+
+    logSkip(message, user, type, startTime, now);
+
+    return {
+      status: "skipped",
       message,
     };
   }
