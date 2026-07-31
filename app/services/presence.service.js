@@ -291,6 +291,28 @@ async function handlePresenceFlow(page, type, user, startTime, now) {
   if (result.status === "clicked") {
     await sleep(3000);
 
+    if (type === "masuk") {
+      const updatedStatus = await getPresenceStatus(page);
+
+      if (updatedStatus.alreadyMasuk || !updatedStatus.hasMasukButton) {
+        logSuccess(type, user, startTime, now);
+
+        return {
+          status: "success",
+          message: "Presensi masuk berhasil",
+        };
+      }
+
+      const message = "Presensi masuk tidak terverifikasi";
+
+      logFail(message, user, type, startTime, now);
+
+      return {
+        status: "failed",
+        message,
+      };
+    }
+
     const confirmed = await handleConfirm(page);
 
     /*
