@@ -75,15 +75,16 @@ function renderScheduler(status) {
   schedulerStatus.textContent = running ? "RUNNING" : "STOPPED";
   schedulerStatus.className = running ? "status-pill online" : "status-pill offline";
   schedulerDetail.textContent = running ? `${status.totalJobs ?? 0} job` : "Berhenti";
+  startBtn.hidden = running;
+  stopBtn.hidden = !running;
 }
 
 function renderScheduleCard(summary, statusElement, detailElement) {
-  const processing = summary?.processing ?? 0;
   const pending = summary?.pending ?? 0;
   const completed = summary?.completed ?? 0;
 
-  statusElement.textContent = processing;
-  detailElement.textContent = `Pending ${pending}, selesai ${completed}`;
+  statusElement.textContent = `${pending} Pending`;
+  detailElement.textContent = `Selesai ${completed}`;
 }
 
 function renderHealth(health) {
@@ -97,10 +98,10 @@ function renderHealth(health) {
   generatorStatus.textContent = generator.healthy ? "Sehat" : "Perlu cek";
   generatorDetail.textContent = `Terakhir: ${formatDateTime(generator.lastRunAt)}`;
 
-  queueStatus.textContent = `${queue.running ?? 0}/${queue.maxConcurrent ?? 0} aktif`;
+  queueStatus.textContent = `${queue.running ?? 0}/${queue.maxConcurrent ?? 0} Aktif`;
   queueDetail.textContent = `Antrean ${queue.pending ?? 0}`;
 
-  browserStatus.textContent = browser.connected ? "Connected" : "Idle";
+  browserStatus.textContent = browser.connected ? "Connected" : "Closed";
   browserDetail.textContent = `Context aktif ${browser.activeContexts ?? 0}`;
 
   memoryStatus.textContent = formatBytes(botMemory.totalRss ?? memory.rss ?? 0);
@@ -115,7 +116,7 @@ function renderHealth(health) {
   uptimeStatus.textContent = formatDuration(health.uptime);
   uptimeDetail.textContent = browser.launchedAt
     ? `Browser aktif ${formatDuration((browser.uptime ?? 0) / 1000)}`
-    : "Browser idle";
+    : "Browser closed";
 }
 
 async function refreshDashboard() {

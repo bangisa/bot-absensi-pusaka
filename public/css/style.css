@@ -206,6 +206,14 @@ h2 {
   flex-wrap: wrap;
 }
 
+.scheduler-actions {
+  width: min(190px, 100%);
+}
+
+.scheduler-actions .btn {
+  width: 100%;
+}
+
 .btn {
   border: none;
   border-radius: 8px;
