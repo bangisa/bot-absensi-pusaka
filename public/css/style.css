@@ -45,10 +45,19 @@ select {
 }
 
 .app-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text);
   font-size: 20px;
   font-weight: 800;
   text-decoration: none;
+}
+
+.app-title img {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
 }
 
 .nav-links {
