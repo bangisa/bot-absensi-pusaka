@@ -25,6 +25,8 @@ import {
   getSchedulerStatus,
   startDailyScheduleGenerator,
   stopDailyScheduleGenerator,
+  startLogCleanup,
+  stopLogCleanup,
 } from "./app/services/index.js";
 
 const app = express();
@@ -98,6 +100,7 @@ process.on("SIGINT", () => {
 
   stopDailyScheduleGenerator();
   stopScheduler();
+  stopLogCleanup();
 
   process.exit(0);
 });
@@ -105,6 +108,8 @@ process.on("SIGINT", () => {
 // 🚀 START SERVER
 app.listen(PORT, "127.0.0.1", () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
+
+  startLogCleanup();
 
   const status = getSchedulerStatus();
   if (appConfig.autoStart && !status.running) {

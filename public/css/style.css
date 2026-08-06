@@ -404,6 +404,10 @@ select:focus {
     flex-direction: column;
   }
 
+  .scheduler-actions {
+    width: 100%;
+  }
+
   .user-form {
     grid-template-columns: 1fr 1fr;
   }
