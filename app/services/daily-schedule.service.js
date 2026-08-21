@@ -97,8 +97,8 @@ function getJakartaTime(date = new Date()) {
  */
 function getMasukRange() {
   return {
-    start: "06:00",
-    end: "06:30",
+    start: "06:03",
+    end: "06:33",
   };
 }
 
@@ -108,21 +108,21 @@ function getMasukRange() {
 function getPulangRange(dayName) {
   if (dayName === "friday") {
     return {
-      start: "12:15",
-      end: "12:45",
+      start: "12:18",
+      end: "12:48",
     };
   }
 
   if (dayName === "saturday") {
     return {
-      start: "15:00",
-      end: "15:30",
+      start: "15:03",
+      end: "15:33",
     };
   }
 
   return {
-    start: "14:30",
-    end: "15:00",
+    start: "14:33",
+    end: "15:03",
   };
 }
 
