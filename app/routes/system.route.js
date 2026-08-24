@@ -30,14 +30,14 @@ router.get("/status", (req, res) => {
 });
 
 // START SCHEDULER
-router.post("/scheduler/start", (req, res) => {
+router.post("/scheduler/start", async (req, res) => {
   const status = getSchedulerStatus();
 
   if (status.running) {
     return res.send("Scheduler sudah berjalan");
   }
 
-  const generatorStatus = startDailyScheduleGenerator();
+  const generatorStatus = await startDailyScheduleGenerator();
 
   if (generatorStatus.lastError) {
     return res.status(500).json({

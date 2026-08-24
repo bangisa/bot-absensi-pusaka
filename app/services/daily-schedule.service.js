@@ -4,6 +4,7 @@ import {
 } from "../models/daily-schedule.model.js";
 
 import { findAllUsers } from "../models/user.model.js";
+import { checkNationalHoliday } from "./holiday.service.js";
 
 /**
  * Mengubah waktu HH:mm menjadi jumlah menit.
@@ -129,7 +130,7 @@ function getPulangRange(dayName) {
 /**
  * Membuat jadwal harian untuk seluruh pengguna.
  */
-function generateDailySchedules(date = new Date()) {
+async function generateDailySchedules(date = new Date()) {
   const scheduleDate = getJakartaDate(date);
   const dayName = getJakartaDay(date);
   const currentTime = getJakartaTime(date);
@@ -140,6 +141,24 @@ function generateDailySchedules(date = new Date()) {
       generated: 0,
       skipped: 0,
       message: "Hari Minggu, jadwal tidak dibuat",
+    };
+  }
+
+  const holiday = await checkNationalHoliday(scheduleDate);
+
+  if (!holiday.available) {
+    console.log(
+      `[HOLIDAY] Gagal cek libur nasional ${scheduleDate}: ${holiday.error}`,
+    );
+  }
+
+  if (holiday.isHoliday) {
+    return {
+      schedule_date: scheduleDate,
+      generated: 0,
+      skipped: 0,
+      holiday,
+      message: `Hari libur nasional (${holiday.name}), jadwal tidak dibuat`,
     };
   }
 
@@ -201,6 +220,7 @@ function generateDailySchedules(date = new Date()) {
     generated,
     skipped,
     total_users: users.length,
+    holiday,
   };
 }
 

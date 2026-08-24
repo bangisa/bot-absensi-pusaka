@@ -18,13 +18,13 @@ let lastError = null;
  * daily_schedules memiliki UNIQUE:
  * user_id + schedule_date + type.
  */
-function runDailyScheduleGeneration(date = new Date()) {
+async function runDailyScheduleGeneration(date = new Date()) {
   const scheduleDate = getJakartaDate(date);
 
   lastRunAt = new Date().toISOString();
 
   try {
-    const result = generateDailySchedules(date);
+    const result = await generateDailySchedules(date);
 
     lastResult = result;
     lastError = null;
@@ -60,7 +60,7 @@ function runDailyScheduleGeneration(date = new Date()) {
  * 1. Sekali ketika aplikasi startup.
  * 2. Setiap hari pukul 00:00:05 WIB.
  */
-function startDailyScheduleGenerator() {
+async function startDailyScheduleGenerator() {
   if (isGeneratorRunning) {
     console.log("[i] Daily schedule generator already running");
 
@@ -71,7 +71,7 @@ function startDailyScheduleGenerator() {
    * Pastikan jadwal hari ini tersedia ketika
    * aplikasi pertama kali dijalankan.
    */
-  const initialResult = runDailyScheduleGeneration();
+  const initialResult = await runDailyScheduleGeneration();
 
   if (initialResult.error) {
     return getDailyScheduleGeneratorStatus();
@@ -83,8 +83,8 @@ function startDailyScheduleGenerator() {
    */
   generatorJob = schedule(
     "5 0 0 * * *",
-    () => {
-      runDailyScheduleGeneration();
+    async () => {
+      await runDailyScheduleGeneration();
     },
     {
       timezone: "Asia/Jakarta",

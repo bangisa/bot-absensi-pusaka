@@ -5,6 +5,7 @@ export * from "./cookies.service.js";
 export * from "./daily-schedule-generator.service.js";
 export * from "./daily-schedule.service.js";
 export * from "./execution.guard.js";
+export * from "./holiday.service.js";
 export * from "./log-cleanup.service.js";
 export * from "./page.service.js";
 export * from "./presence.service.js";
