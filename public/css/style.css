@@ -280,6 +280,10 @@ h2 {
   font-weight: 700;
 }
 
+.required-mark {
+  color: var(--red);
+}
+
 .form-actions {
   grid-column: 1 / -1;
 }

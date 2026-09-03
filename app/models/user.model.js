@@ -1,5 +1,5 @@
 import db from "../../database/db.js";
-import { schedulerConfig, geoConfig } from "../config/index.js";
+import { geoConfig } from "../config/index.js";
 import { validateUser } from "../validators/user.validator.js";
 // const bcrypt = require("bcrypt");
 
@@ -23,22 +23,16 @@ function insertUser(data) {
     .prepare(
       `
     INSERT OR IGNORE INTO users 
-    (username, password, latitude, longitude, masuk, pulang, jumat, sabtu, auto_login)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (username, nickname, password, latitude, longitude, auto_login)
+    VALUES (?, ?, ?, ?, ?, ?)
   `,
     )
     .run(
       data.username,
+      data.nickname || null,
       data.password,
       data.latitude || geoConfig.defaultLat,
       data.longitude || geoConfig.defaultLng,
-      data.masuk || schedulerConfig.defaultMasuk,
-
-      data.pulang || schedulerConfig.defaultPulang,
-
-      data.jumat || schedulerConfig.defaultJumat,
-
-      data.sabtu || schedulerConfig.defaultSabtu,
       data.auto_login ?? 1,
     );
 }
@@ -49,25 +43,19 @@ function updateUser(id, data) {
     .prepare(
       `
     UPDATE users SET
+      nickname = ?,
       password = ?,
       latitude = ?,
       longitude = ?,
-      masuk = ?,
-      pulang = ?,
-      jumat = ?,
-      sabtu = ?,
       auto_login = ?
     WHERE id = ?
   `,
     )
     .run(
+      data.nickname || null,
       data.password,
       data.latitude || geoConfig.defaultLat,
       data.longitude || geoConfig.defaultLng,
-      data.masuk || schedulerConfig.defaultMasuk,
-      data.pulang || schedulerConfig.defaultPulang,
-      data.jumat || schedulerConfig.defaultJumat,
-      data.sabtu || schedulerConfig.defaultSabtu,
       data.auto_login ?? 1,
       id,
     );
@@ -102,21 +90,18 @@ function removeUser(id) {
 function insertUsers(users) {
   const insert = db.prepare(`
     INSERT OR IGNORE INTO users 
-    (username, password, latitude, longitude, masuk, pulang, jumat, sabtu, auto_login)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (username, nickname, password, latitude, longitude, auto_login)
+    VALUES (?, ?, ?, ?, ?, ?)
   `);
 
   const transaction = db.transaction((users) => {
     for (const user of users) {
       insert.run(
         user.username,
+        user.nickname || null,
         user.password,
         user.latitude || geoConfig.defaultLat,
         user.longitude || geoConfig.defaultLng,
-        user.masuk || schedulerConfig.defaultMasuk,
-        user.pulang || schedulerConfig.defaultPulang,
-        user.jumat || schedulerConfig.defaultJumat,
-        user.sabtu || schedulerConfig.defaultSabtu,
         user.auto_login ?? 1,
       );
     }

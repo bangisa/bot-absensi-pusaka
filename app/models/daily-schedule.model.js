@@ -85,13 +85,10 @@ function findPendingSchedulesByDate(scheduleDate, currentDateTime) {
 
         u.id            AS u_id,
         u.username      AS u_username,
+        u.nickname      AS u_nickname,
         u.password      AS u_password,
         u.latitude      AS u_latitude,
         u.longitude     AS u_longitude,
-        u.masuk         AS u_masuk,
-        u.pulang        AS u_pulang,
-        u.jumat         AS u_jumat,
-        u.sabtu         AS u_sabtu,
         u.auto_login    AS u_auto_login
 
       FROM daily_schedules ds
@@ -132,13 +129,10 @@ function findPendingSchedulesByDate(scheduleDate, currentDateTime) {
     user: {
       id: row.u_id,
       username: row.u_username,
+      nickname: row.u_nickname,
       password: row.u_password,
       latitude: row.u_latitude,
       longitude: row.u_longitude,
-      masuk: row.u_masuk,
-      pulang: row.u_pulang,
-      jumat: row.u_jumat,
-      sabtu: row.u_sabtu,
       auto_login: row.u_auto_login,
     },
   }));

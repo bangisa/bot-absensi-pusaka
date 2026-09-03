@@ -31,11 +31,15 @@
           <h2>Tambah User</h2>
           <form method="post" id="user-form" class="user-form">
             <label>
-              <span>Username</span>
+              <span>Username <span class="required-mark">*</span></span>
               <input type="text" id="username" autocomplete="username" required />
             </label>
             <label>
-              <span>Password</span>
+              <span>Nickname</span>
+              <input type="text" id="nickname" autocomplete="nickname" />
+            </label>
+            <label>
+              <span>Password <span class="required-mark">*</span></span>
               <input type="password" id="password" autocomplete="new-password" required />
             </label>
             <label>
@@ -59,9 +63,7 @@
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Username</th>
-                  <th>Latitude</th>
-                  <th>Longitude</th>
+                  <th>Nickname</th>
                   <th>Aksi</th>
                 </tr>
               </thead>

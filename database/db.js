@@ -24,6 +24,72 @@ function ensureColumn(tableName, columnName, definition) {
   }
 }
 
+function migrateUsersScheduleColumns() {
+  const columns = db.prepare("PRAGMA table_info(users)").all();
+
+  const obsoleteColumns = new Set(["masuk", "pulang", "jumat", "sabtu"]);
+  const hasObsoleteColumns = columns.some((column) =>
+    obsoleteColumns.has(column.name),
+  );
+  const nicknameExpression = columns.some((column) => column.name === "nickname")
+    ? "nickname"
+    : "NULL";
+
+  if (!hasObsoleteColumns) {
+    return;
+  }
+
+  db.pragma("foreign_keys = OFF");
+
+  try {
+    db.transaction(() => {
+      db.prepare(
+        `
+          CREATE TABLE users_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            nickname TEXT,
+            password TEXT NOT NULL,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            auto_login INTEGER DEFAULT 1
+          )
+        `,
+      ).run();
+
+      db.prepare(
+        `
+          INSERT INTO users_new (
+            id,
+            username,
+            nickname,
+            password,
+            latitude,
+            longitude,
+            auto_login
+          )
+          SELECT
+            id,
+            username,
+            ${nicknameExpression},
+            password,
+            latitude,
+            longitude,
+            auto_login
+          FROM users
+        `,
+      ).run();
+
+      db.prepare("DROP TABLE users").run();
+      db.prepare("ALTER TABLE users_new RENAME TO users").run();
+    })();
+
+    console.log("[DB] Kolom jadwal lama pada users dihapus");
+  } finally {
+    db.pragma("foreign_keys = ON");
+  }
+}
+
 try {
   db = new Database(dbPath);
 
@@ -38,17 +104,16 @@ try {
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL UNIQUE,
+        nickname TEXT,
         password TEXT NOT NULL,
         latitude REAL NOT NULL,
         longitude REAL NOT NULL,
-        masuk TEXT NOT NULL,
-        pulang TEXT NOT NULL,
-        jumat TEXT NOT NULL,
-        sabtu TEXT NOT NULL,
         auto_login INTEGER DEFAULT 1
       )
     `,
   ).run();
+
+  ensureColumn("users", "nickname", "TEXT");
 
   db.prepare(
     `
@@ -115,6 +180,8 @@ try {
   ensureColumn("daily_schedules", "max_attempts", "INTEGER NOT NULL DEFAULT 3");
 
   ensureColumn("daily_schedules", "next_retry_at", "TEXT");
+
+  migrateUsersScheduleColumns();
 
   db.prepare(
     `

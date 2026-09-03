@@ -42,7 +42,7 @@ function createEmptyRow(message, className = "row-empty") {
   row.className = className;
 
   const cell = document.createElement("td");
-  cell.colSpan = 5;
+  cell.colSpan = 3;
   cell.textContent = message;
   row.appendChild(cell);
 
@@ -54,20 +54,17 @@ function createUserRow(user) {
 
   appendCell(row, user.id);
 
-  const usernameCell = document.createElement("td");
-  usernameCell.className = "user-cell";
+  const nicknameCell = document.createElement("td");
+  nicknameCell.className = "user-cell";
 
-  const username = document.createElement("strong");
-  username.textContent = user.username;
+  const nickname = document.createElement("strong");
+  nickname.textContent = user.nickname || "-";
 
   const autoLogin = document.createElement("small");
   autoLogin.textContent = Number(user.auto_login ?? 1) === 1 ? "Auto login aktif" : "Auto login nonaktif";
 
-  usernameCell.append(username, autoLogin);
-  row.appendChild(usernameCell);
-
-  appendCell(row, user.latitude);
-  appendCell(row, user.longitude);
+  nicknameCell.append(nickname, autoLogin);
+  row.appendChild(nicknameCell);
 
   const actionCell = document.createElement("td");
   const deleteButton = document.createElement("button");
@@ -128,6 +125,7 @@ function renderUsers() {
 function getFormData() {
   return {
     username: document.getElementById("username").value.trim(),
+    nickname: document.getElementById("nickname").value.trim(),
     password: document.getElementById("password").value,
     latitude: document.getElementById("lat").value.trim(),
     longitude: document.getElementById("lng").value.trim(),
