@@ -23,38 +23,11 @@
 
       <main>
         <section class="page-header">
-          <h1>Users</h1>
-          <p id="users-summary" class="muted">Memuat...</p>
-        </section>
-
-        <section class="panel">
-          <h2>Tambah User</h2>
-          <form method="post" id="user-form" class="user-form">
-            <label>
-              <span>Username <span class="required-mark">*</span></span>
-              <input type="text" id="username" autocomplete="username" required />
-            </label>
-            <label>
-              <span>Nickname</span>
-              <input type="text" id="nickname" autocomplete="nickname" />
-            </label>
-            <label>
-              <span>Password <span class="required-mark">*</span></span>
-              <input type="password" id="password" autocomplete="new-password" required />
-            </label>
-            <label>
-              <span>Latitude</span>
-              <input type="number" step="any" id="lat" value="-6.62949867534904" />
-            </label>
-            <label>
-              <span>Longitude</span>
-              <input type="number" step="any" id="lng" value="110.72249001053517" />
-            </label>
-            <div class="form-actions">
-              <button type="submit" class="btn primary">Tambah</button>
-              <p id="form-message" class="form-message" aria-live="polite"></p>
-            </div>
-          </form>
+          <div>
+            <h1>Users</h1>
+            <p id="users-summary" class="muted">Memuat...</p>
+          </div>
+          <button id="open-user-modal" class="btn primary" type="button">Tambah User</button>
         </section>
 
         <section class="panel table-panel">
@@ -78,6 +51,39 @@
         </section>
       </main>
     </div>
+
+    <dialog id="user-modal" class="modal">
+      <form method="post" id="user-form" class="user-form modal-content">
+        <div class="modal-header">
+          <h2>Tambah User</h2>
+          <button id="close-user-modal" class="btn secondary" type="button" aria-label="Tutup modal">Tutup</button>
+        </div>
+        <label>
+          <span>Nickname <span class="required-mark">*</span></span>
+          <input type="text" id="nickname" autocomplete="nickname" required />
+        </label>
+        <label>
+          <span>Username <span class="required-mark">*</span></span>
+          <input type="text" id="username" autocomplete="username" required />
+        </label>
+        <label>
+          <span>Password <span class="required-mark">*</span></span>
+          <input type="password" id="password" autocomplete="new-password" required />
+        </label>
+        <label>
+          <span>Latitude <span class="required-mark">*</span></span>
+          <input type="number" step="any" id="lat" required />
+        </label>
+        <label>
+          <span>Longitude <span class="required-mark">*</span></span>
+          <input type="number" step="any" id="lng" required />
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn primary">Tambah</button>
+          <p id="form-message" class="form-message" aria-live="polite"></p>
+        </div>
+      </form>
+    </dialog>
 
     <script type="module" src="/js/users.js"></script>
   </body>

@@ -4,6 +4,9 @@ const PAGE_SIZE = 10;
 
 const usersList = document.getElementById("users-list");
 const usersSummary = document.getElementById("users-summary");
+const userModal = document.getElementById("user-modal");
+const openUserModalButton = document.getElementById("open-user-modal");
+const closeUserModalButton = document.getElementById("close-user-modal");
 const form = document.getElementById("user-form");
 const formMessage = document.getElementById("form-message");
 const submitButton = form.querySelector("button[type='submit']");
@@ -22,6 +25,22 @@ function setMessage(message, type = "info") {
 
 function clearMessage() {
   formMessage.textContent = "";
+}
+
+function resetForm() {
+  form.reset();
+}
+
+function openUserModal() {
+  clearMessage();
+  userModal.showModal();
+  document.getElementById("nickname").focus();
+}
+
+function closeUserModal() {
+  if (!userModal.open) return;
+
+  userModal.close();
 }
 
 function setLoading(loading) {
@@ -166,6 +185,15 @@ nextButton.addEventListener("click", () => {
   renderUsers();
 });
 
+openUserModalButton.addEventListener("click", openUserModal);
+closeUserModalButton.addEventListener("click", closeUserModal);
+
+userModal.addEventListener("click", (event) => {
+  if (event.target === userModal) {
+    closeUserModal();
+  }
+});
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -176,13 +204,12 @@ form.addEventListener("submit", async (event) => {
     setLoading(true);
 
     await createUser(data);
-    form.reset();
-    document.getElementById("lat").value = "-6.62949867534904";
-    document.getElementById("lng").value = "110.72249001053517";
+    resetForm();
     currentPage = 1;
 
     await loadUsers();
     setMessage("User ditambahkan.");
+    closeUserModal();
   } catch (err) {
     console.error(err);
     setMessage(err.message || "Gagal menambah user", "error");

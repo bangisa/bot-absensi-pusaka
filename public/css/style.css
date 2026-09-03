@@ -271,6 +271,35 @@ h2 {
   gap: 12px;
 }
 
+.modal {
+  width: min(460px, calc(100% - 32px));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 0;
+}
+
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.modal-content {
+  grid-template-columns: 1fr;
+  padding: 16px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal-header h2 {
+  margin-bottom: 0;
+}
+
 .user-form label,
 .filters label {
   display: grid;
