@@ -119,6 +119,7 @@ async function openPusaka(type, user) {
     createLog({
       user_id: user.id,
       username: user.username,
+      nickname: user.nickname,
       type,
       status: "failed",
       message,

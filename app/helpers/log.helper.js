@@ -14,6 +14,7 @@ function logSuccess(type, user, startTime) {
   createLog({
     user_id: user.id,
     username: user.username,
+    nickname: user.nickname,
     type,
     status: "success",
     message,
@@ -30,6 +31,7 @@ function logSkip(label, user, type, startTime, now) {
   createLog({
     user_id: user.id,
     username: user.username,
+    nickname: user.nickname,
     type,
     status: "skipped",
     message,
@@ -46,6 +48,7 @@ function logFail(label, user, type, startTime, now) {
   createLog({
     user_id: user.id,
     username: user.username,
+    nickname: user.nickname,
     type,
     status: "failed",
     message,

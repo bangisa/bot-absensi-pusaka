@@ -16,13 +16,14 @@ function createLog(data) {
     .prepare(
       `
       INSERT INTO logs 
-      (user_id, username, type, status, message, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      (user_id, username, nickname, type, status, message, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `,
     )
     .run(
       data.user_id,
       data.username,
+      data.nickname || null,
       data.type,
       data.status,
       data.message,
@@ -34,8 +35,19 @@ function getLogs(limit = 50) {
   return db
     .prepare(
       `
-      SELECT * FROM logs 
-      ORDER BY created_at DESC 
+      SELECT
+        l.id,
+        l.user_id,
+        l.username,
+        COALESCE(l.nickname, u.nickname, l.username) AS nickname,
+        l.type,
+        l.status,
+        l.message,
+        l.created_at
+      FROM logs l
+      LEFT JOIN users u
+        ON u.id = l.user_id
+      ORDER BY l.created_at DESC
       LIMIT ?
     `,
     )

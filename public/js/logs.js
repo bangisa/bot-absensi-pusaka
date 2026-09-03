@@ -54,7 +54,7 @@ function createLogRow(log) {
   row.className = `log-${log.status}`;
 
   row.appendChild(createCell(formatLogDate(log.created_at)));
-  row.appendChild(createCell(log.username));
+  row.appendChild(createCell(log.nickname));
 
   const typeCell = document.createElement("td");
   typeCell.appendChild(createBadge(log.type, `type-${log.type}`));
@@ -77,7 +77,8 @@ function getFilteredLogs() {
   return allLogs.filter((log) => {
     const matchesStatus = status === "all" || log.status === status;
     const matchesType = type === "all" || log.type === type;
-    const text = `${log.username ?? ""} ${log.message ?? ""}`.toLowerCase();
+    const text =
+      `${log.nickname ?? ""} ${log.username ?? ""} ${log.message ?? ""}`.toLowerCase();
     const matchesSearch = !search || text.includes(search);
 
     return matchesStatus && matchesType && matchesSearch;

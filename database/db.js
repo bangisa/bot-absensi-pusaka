@@ -121,6 +121,7 @@ try {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         username TEXT,
+        nickname TEXT,
         type TEXT,
         status TEXT CHECK(
           status IN ('success', 'failed', 'skipped')
@@ -132,6 +133,8 @@ try {
       )
     `,
   ).run();
+
+  ensureColumn("logs", "nickname", "TEXT");
 
   db.prepare(
     `
