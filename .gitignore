@@ -8,6 +8,9 @@
 # Test
 app/test/
 
+# Local notes / captured page snippets
+element-pusaka.txt
+
 # Node
 node_modules/
 npm-debug.log*
@@ -26,8 +29,22 @@ cookies/
 *.log
 logs/
 
+# Secrets / credentials
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+
 # PM2
 .pm2/
+dump.pm2
+ecosystem.config.js
+
+# Git deployment bundles
+*.bundle
 
 # OS
 .DS_Store
@@ -36,3 +53,7 @@ Thumbs.db
 # Build
 dist/
 .cache/
+
+# Temporary artifacts
+*.tmp
+*.bak
