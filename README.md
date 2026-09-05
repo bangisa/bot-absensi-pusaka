@@ -1,6 +1,6 @@
 # Bot Absensi Pusaka
 
-Dashboard lokal untuk mengelola pengguna, membuat jadwal presensi harian, menjalankan antrean automation, dan memantau status bot.
+Bot Absensi Pusaka adalah aplikasi automation private untuk membantu menjalankan proses presensi melalui browser terkontrol. Aplikasi ini membuat jadwal harian, menjalankan task secara antre, menyimpan hasil eksekusi, dan menyediakan dashboard internal untuk memantau status automation.
 
 ## Fitur
 
@@ -43,31 +43,3 @@ npm run dev
 ```
 
 Aplikasi berjalan pada port yang ditentukan oleh `PORT`, default `3000`.
-
-## Struktur Penting
-
-```text
-app/
-  config/       Konfigurasi environment
-  controllers/  Handler request
-  helpers/      Helper umum
-  models/       Query SQLite
-  routes/       Route Express
-  services/     Scheduler, queue, browser, dan automation
-database/       Inisialisasi SQLite
-public/         Dashboard frontend
-scripts/        Script utilitas
-```
-
-## Keamanan Repo Publik
-
-File berikut sengaja tidak disimpan di Git:
-
-- `.env`
-- `cookies/`
-- `database/*.sqlite`
-- `database/*.db`
-- `*.pem`, `*.key`, dan file credential lain
-- file catatan lokal seperti `element-pusaka.txt`
-
-Jika sebelumnya file sensitif pernah terlanjur masuk commit, bersihkan juga history Git sebelum mengubah repository menjadi public.
