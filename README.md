@@ -1,6 +1,6 @@
 # Bot Absensi Pusaka
 
-Bot Absensi Pusaka adalah aplikasi automation private untuk membantu menjalankan proses presensi melalui browser terkontrol. Aplikasi ini membuat jadwal harian, menjalankan task secara antre, menyimpan hasil eksekusi, dan menyediakan dashboard internal untuk memantau status automation.
+Bot Absensi Pusaka adalah aplikasi automation untuk membantu menjalankan proses presensi melalui browser terkontrol. Aplikasi ini membuat jadwal harian, menjalankan task secara antre, menyimpan hasil eksekusi, dan menyediakan dashboard internal untuk memantau status automation.
 
 ## Fitur
 
