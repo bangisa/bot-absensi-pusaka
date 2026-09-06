@@ -12,6 +12,16 @@ Bot Absensi Pusaka adalah aplikasi automation untuk membantu menjalankan proses 
 - Deteksi hari libur nasional Indonesia melalui API eksternal.
 - Penyimpanan lokal menggunakan SQLite.
 
+## Tampilan
+
+### Dashboard
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+### Logs
+
+![Logs](docs/screenshots/logs.png)
+
 ## Teknologi
 
 - Node.js
