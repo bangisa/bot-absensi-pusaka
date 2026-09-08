@@ -1,5 +1,6 @@
 import {
   findDailySchedule,
+  findRecentDailySchedules,
   insertDailySchedule,
 } from "../models/daily-schedule.model.js";
 
@@ -34,6 +35,12 @@ function secondsToTime(totalSeconds) {
   ].join(":");
 }
 
+function timeToMinuteKey(time) {
+  const [hour = "00", minute = "00"] = time.split(":");
+
+  return `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+}
+
 /**
  * Menghasilkan waktu acak di antara dua waktu.
  */
@@ -50,6 +57,60 @@ function randomTimeBetween(startTime, endTime) {
     Math.floor(Math.random() * (endSeconds - startSeconds + 1)) + startSeconds;
 
   return secondsToTime(randomSeconds);
+}
+
+function randomTimeBetweenExcludingMinutes(
+  startTime,
+  endTime,
+  excludedMinuteKeys = [],
+) {
+  const startSeconds = timeToSeconds(startTime);
+
+  const endSeconds = timeToSeconds(endTime);
+
+  if (endSeconds < startSeconds) {
+    throw new Error(`Rentang waktu tidak valid: ${startTime}-${endTime}`);
+  }
+
+  const excludedMinutes = new Set(excludedMinuteKeys);
+  const allowedSeconds = [];
+
+  for (let second = startSeconds; second <= endSeconds; second++) {
+    const time = secondsToTime(second);
+
+    if (!excludedMinutes.has(timeToMinuteKey(time))) {
+      allowedSeconds.push(second);
+    }
+  }
+
+  if (allowedSeconds.length === 0) {
+    return randomTimeBetween(startTime, endTime);
+  }
+
+  const randomIndex = Math.floor(Math.random() * allowedSeconds.length);
+
+  return secondsToTime(allowedSeconds[randomIndex]);
+}
+
+function getRecentScheduleMinuteKeys(userId, type, scheduleDate) {
+  return findRecentDailySchedules(userId, type, scheduleDate, 2).map((row) =>
+    timeToMinuteKey(row.scheduled_time),
+  );
+}
+
+function shuffleUsers(users) {
+  const shuffled = [...users];
+
+  for (let index = shuffled.length - 1; index > 0; index--) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+
+    [shuffled[index], shuffled[randomIndex]] = [
+      shuffled[randomIndex],
+      shuffled[index],
+    ];
+  }
+
+  return shuffled;
 }
 
 function isTimeAfter(time, targetTime) {
@@ -162,7 +223,7 @@ async function generateDailySchedules(date = new Date()) {
     };
   }
 
-  const users = findAllUsers();
+  const users = shuffleUsers(findAllUsers());
 
   let generated = 0;
   let skipped = 0;
@@ -180,7 +241,11 @@ async function generateDailySchedules(date = new Date()) {
           user_id: user.id,
           schedule_date: scheduleDate,
           type: "masuk",
-          scheduled_time: randomTimeBetween(masukRange.start, masukRange.end),
+          scheduled_time: randomTimeBetweenExcludingMinutes(
+            masukRange.start,
+            masukRange.end,
+            getRecentScheduleMinuteKeys(user.id, "masuk", scheduleDate),
+          ),
         });
 
         if (masukResult.changes > 0) {
@@ -203,7 +268,11 @@ async function generateDailySchedules(date = new Date()) {
           user_id: user.id,
           schedule_date: scheduleDate,
           type: "pulang",
-          scheduled_time: randomTimeBetween(pulangRange.start, pulangRange.end),
+          scheduled_time: randomTimeBetweenExcludingMinutes(
+            pulangRange.start,
+            pulangRange.end,
+            getRecentScheduleMinuteKeys(user.id, "pulang", scheduleDate),
+          ),
         });
 
         if (pulangResult.changes > 0) {

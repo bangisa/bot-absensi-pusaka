@@ -45,6 +45,32 @@ function findDailySchedule(userId, scheduleDate, type) {
 }
 
 /**
+ * Mengambil jadwal terakhir user untuk jenis presensi yang sama.
+ *
+ * Dipakai generator agar menit jadwal harian tidak berulang
+ * dengan 1-2 hari jadwal sebelumnya.
+ */
+function findRecentDailySchedules(userId, type, beforeDate, limit = 2) {
+  const safeLimit = Math.max(1, Number.parseInt(limit, 10) || 2);
+
+  return db
+    .prepare(
+      `
+      SELECT
+        schedule_date,
+        scheduled_time
+      FROM daily_schedules
+      WHERE user_id = ?
+        AND type = ?
+        AND schedule_date < ?
+      ORDER BY schedule_date DESC
+      LIMIT ?
+      `,
+    )
+    .all(userId, type, beforeDate, safeLimit);
+}
+
+/**
  * Mengambil seluruh jadwal pada tanggal tertentu.
  */
 function findDailySchedulesByDate(scheduleDate) {
@@ -471,6 +497,7 @@ function resetProcessingSchedules(scheduleDate) {
 
 export {
   findDailySchedule,
+  findRecentDailySchedules,
   findDailySchedulesByDate,
   findPendingSchedulesByDate,
   countOpenDailySchedules,
