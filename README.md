@@ -7,7 +7,7 @@ Bot Absensi Pusaka adalah aplikasi automation untuk membantu menjalankan proses 
 - Generator jadwal harian dengan waktu acak per pengguna.
 - Executor berbasis antrean dengan batas concurrency.
 - Dashboard status scheduler, browser, queue, memory, dan jadwal harian.
-- Manajemen user dengan nickname.
+- Manajemen user dengan nickname agar lebih private.
 - Log presensi dengan pagination dan filter.
 - Deteksi hari libur nasional Indonesia melalui API eksternal.
 - Penyimpanan lokal menggunakan SQLite.
