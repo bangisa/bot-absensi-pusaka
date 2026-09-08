@@ -18,6 +18,10 @@ Bot Absensi Pusaka adalah aplikasi automation untuk membantu menjalankan proses 
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
+### Users
+
+![Users](docs/screenshots/users.png)
+
 ### Logs
 
 ![Logs](docs/screenshots/logs.png)

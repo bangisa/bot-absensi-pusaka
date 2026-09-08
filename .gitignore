@@ -1,6 +1,7 @@
 # ENV
 .env
 .env.*
+!.env.example
 
 .agents/
 .vscode/
