@@ -17,11 +17,19 @@ import { openPusaka } from "./automation.service.js";
 
 import { getJakartaDate, getJakartaTime } from "./daily-schedule.service.js";
 
-import { nowLog } from "../helpers/index.js";
+import { nowLog, logger } from "../helpers/index.js";
+import { timeConfig } from "../config/time.config.js";
+import {
+  getLifecycleStatus,
+  isDraining,
+  shouldProcessScheduleDuringDrain,
+} from "./lifecycle.service.js";
 
 let jobs = [];
 let isRunning = false;
 let isTickRunning = false;
+let lastTickAt = null;
+let lastTickError = null;
 
 const MAX_SCHEDULE_DELAY_SECONDS = 10 * 60;
 
@@ -30,6 +38,8 @@ function getSchedulerStatus() {
     running: isRunning,
     tickRunning: isTickRunning,
     totalJobs: jobs.length,
+    lastTickAt,
+    lastTickError,
   };
 }
 
@@ -52,13 +62,15 @@ function handleTaskFailure(dailySchedule, error) {
   const retryResult = markScheduleRetry(dailySchedule.id, message);
 
   if (retryResult.retried) {
-    console.log(
-      `[RETRY] ` +
-        `schedule=${dailySchedule.id} ` +
-        `attempt=${retryResult.attempt_count}/` +
-        `${retryResult.max_attempts} ` +
-        `next=${retryResult.next_retry_at}`,
-    );
+    logger.warn("schedule.retry_scheduled", message, {
+      scheduleId: dailySchedule.id,
+      userId: dailySchedule.user_id,
+      attempt: retryResult.attempt_count,
+      maxAttempts: retryResult.max_attempts,
+      delaySeconds: retryResult.delay_seconds,
+      jitterSeconds: retryResult.jitter_seconds,
+      nextRetryAt: retryResult.next_retry_at,
+    });
 
     return {
       status: "retry_scheduled",
@@ -68,12 +80,12 @@ function handleTaskFailure(dailySchedule, error) {
   }
 
   if (retryResult.failed) {
-    console.log(
-      `[FAILED] ` +
-        `schedule=${dailySchedule.id} ` +
-        `attempt=${retryResult.attempt_count}/` +
-        `${retryResult.max_attempts}`,
-    );
+    logger.error("schedule.failed", message, {
+      scheduleId: dailySchedule.id,
+      userId: dailySchedule.user_id,
+      attempt: retryResult.attempt_count,
+      maxAttempts: retryResult.max_attempts,
+    });
 
     return {
       status: "failed",
@@ -188,15 +200,24 @@ function enqueueScheduleTask(dailySchedule, user) {
 async function runSchedulerTick() {
   const now = new Date();
 
-  const scheduleDate = getJakartaDate(now);
+  const lifecycle = getLifecycleStatus();
+  const draining = isDraining();
+  const currentDate = getJakartaDate(now);
+  // Drain tetap mengambil workload tanggal cutoff, termasuk retry lewat tengah malam.
+  const scheduleDate = draining ? lifecycle.cutoffDate : currentDate;
   const currentTime = getJakartaTime(now);
-  const currentDateTime = `${scheduleDate} ${currentTime}`;
+  const currentDateTime = `${currentDate} ${currentTime}`;
+  const dueTime = draining ? lifecycle.cutoffTime : currentTime;
 
   const pendingSchedules = await Promise.resolve(
     findPendingSchedulesByDate(scheduleDate, currentDateTime),
   );
 
   for (const dailySchedule of pendingSchedules) {
+    if (!shouldProcessScheduleDuringDrain(dailySchedule)) {
+      continue;
+    }
+
     /*
      * Jadwal yang waktunya belum tiba tidak
      * dijalankan.
@@ -204,15 +225,20 @@ async function runSchedulerTick() {
      * Format HH:mm:ss dapat dibandingkan langsung
      * selama selalu memakai dua digit.
      */
-    if (dailySchedule.scheduled_time > currentTime) {
+    const isRetry = dailySchedule.attempt_count > 0;
+
+    if (!(draining && isRetry) && dailySchedule.scheduled_time > dueTime) {
       continue;
     }
 
-    const isRetry = dailySchedule.attempt_count > 0;
+    const expiryReferenceTime =
+      draining && !isRetry && lifecycle.cutoffTime
+        ? lifecycle.cutoffTime
+        : currentTime;
 
     if (
       !isRetry &&
-      isScheduleExpired(dailySchedule.scheduled_time, currentTime)
+      isScheduleExpired(dailySchedule.scheduled_time, expiryReferenceTime)
     ) {
       const lockResult = markScheduleProcessing(dailySchedule.id);
 
@@ -277,14 +303,18 @@ function startScheduler() {
 
       try {
         await runSchedulerTick();
+        lastTickAt = nowLog();
+        lastTickError = null;
       } catch (err) {
+        lastTickAt = nowLog();
+        lastTickError = err.message;
         console.log("[X] Scheduler error:", err.message);
       } finally {
         isTickRunning = false;
       }
     },
     {
-      timezone: "Asia/Jakarta",
+      timezone: timeConfig.timeZone,
     },
   );
 

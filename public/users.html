@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>User Management</title>
+    <title>🤖 Users · Bot Absensi Pusaka</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="/css/style.css" />
   </head>
@@ -11,13 +11,16 @@
     <div class="container">
       <header class="topbar">
         <a class="app-title" href="/">
-          <img src="/favicon.svg" alt="" aria-hidden="true" />
+          <span class="brand-emoji" aria-hidden="true">🤖</span>
           <span>Bot Absensi Pusaka</span>
         </a>
         <nav class="nav-links" aria-label="Navigasi utama">
           <a href="/">Dashboard</a>
           <a class="active" href="/users.html">Users</a>
           <a href="/logs.html">Logs</a>
+          <form class="logout-form" method="post" action="/auth/logout">
+            <button class="nav-logout" type="submit">Logout</button>
+          </form>
         </nav>
       </header>
 
@@ -56,18 +59,18 @@
       <form method="post" id="user-form" class="user-form modal-content">
         <div class="modal-header">
           <h2>Tambah User</h2>
-          <button id="close-user-modal" class="btn secondary" type="button" aria-label="Tutup modal">Tutup</button>
+          <button id="close-user-modal" class="modal-close-icon" type="button" aria-label="Tutup modal" title="Tutup">❌</button>
         </div>
         <label>
-          <span>Nickname <span class="required-mark">*</span></span>
+          <span>Nickname <small class="field-hint">(Nama Samaran)</small> <span class="required-mark">*</span></span>
           <input type="text" id="nickname" autocomplete="nickname" required />
         </label>
         <label>
-          <span>Username <span class="required-mark">*</span></span>
+          <span>Username <small class="field-hint">Akun Pusaka</small> <span class="required-mark">*</span></span>
           <input type="text" id="username" autocomplete="username" required />
         </label>
         <label>
-          <span>Password <span class="required-mark">*</span></span>
+          <span>Password <small class="field-hint">Akun Pusaka</small> <span class="required-mark">*</span></span>
           <input type="password" id="password" autocomplete="new-password" required />
         </label>
         <label>
@@ -86,5 +89,6 @@
     </dialog>
 
     <script type="module" src="/js/users.js"></script>
+      <script type="module" src="/js/auth-ui.js"></script>
   </body>
 </html>

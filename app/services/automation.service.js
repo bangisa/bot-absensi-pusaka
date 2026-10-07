@@ -1,9 +1,9 @@
-import { queueConfig } from "../config/index.js";
+import { geoConfig, queueConfig } from "../config/index.js";
 import { createLog } from "../models/index.js";
 import { getPage, releasePage } from "./page.service.js";
 import { ensureLogin } from "./auth.service.js";
 import { gotoPresence, handlePresenceFlow } from "./presence.service.js";
-import { nowID } from "../helpers/index.js";
+import { nowID, randomPointInRadius } from "../helpers/index.js";
 
 const AUTOMATION_TIMEOUT = Math.max(1000, queueConfig.taskTimeout - 10000);
 
@@ -71,10 +71,22 @@ async function openPusaka(type, user) {
 
     const result = await runWithAutomationTimeout(
       async () => {
+        const randomizedLocation = randomPointInRadius(
+          user.latitude,
+          user.longitude,
+          geoConfig.radiusMeters,
+        );
+
         await page.setGeolocation({
-          latitude: user.latitude,
-          longitude: user.longitude,
+          latitude: randomizedLocation.latitude,
+          longitude: randomizedLocation.longitude,
         });
+
+        if (geoConfig.radiusMeters > 0) {
+          console.log(
+            `[GEO] User ${user.id}: random ${randomizedLocation.distanceMeters.toFixed(1)} m dari titik pusat`,
+          );
+        }
 
         await ensureLogin(page, user);
 

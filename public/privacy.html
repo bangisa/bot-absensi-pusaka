@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🤖 Kebijakan Privasi · Bot Absensi Pusaka</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body class="legal-page">
+    <main class="legal-shell">
+      <header class="legal-header">
+        <a class="app-title" href="/login">
+          <span class="brand-emoji" aria-hidden="true">🤖</span>
+          <span>Bot Absensi Pusaka</span>
+        </a>
+        <a class="btn secondary" href="/login">Kembali ke Login</a>
+      </header>
+
+      <article class="legal-card">
+        <p class="eyebrow">Privasi</p>
+        <h1>Kebijakan Privasi</h1>
+        <p class="legal-updated">Terakhir diperbarui: 2 Oktober 2026</p>
+
+        <section>
+          <h2>1. Ruang Lingkup</h2>
+          <p>Kebijakan ini menjelaskan bagaimana Bot Absensi Pusaka memproses data yang diperlukan untuk menjalankan fungsi administrasi, penjadwalan, dan otomasi presensi.</p>
+        </section>
+
+        <section>
+          <h2>2. Data yang Diproses</h2>
+          <p>Aplikasi dapat memproses nickname/nama samaran, username akun Pusaka, password akun Pusaka, koordinat yang dikonfigurasi, cookie/session Pusaka, jadwal presensi, status hasil presensi, serta log operasional dan audit.</p>
+        </section>
+
+        <section>
+          <h2>3. Tujuan Penggunaan</h2>
+          <p>Data digunakan hanya untuk menjalankan fungsi aplikasi, termasuk login ke Pusaka, menjalankan workflow presensi yang telah dikonfigurasi, membuat jadwal, melakukan retry, menampilkan status operasional, pencatatan log, diagnosis, dan pemulihan sistem.</p>
+        </section>
+
+        <section>
+          <h2>4. Perlindungan Credential</h2>
+          <p>Username dan password Pusaka disimpan dalam keadaan terenkripsi. Credential hanya didekripsi sementara di memory ketika dibutuhkan oleh workflow login. Password tidak ditampilkan kembali melalui halaman Users atau API publik aplikasi.</p>
+        </section>
+
+        <section>
+          <h2>5. Log dan Audit</h2>
+          <p>Aplikasi menerapkan masking dan redaction untuk mengurangi kemungkinan password, token, cookie, secret, dan credential terenkripsi tercatat di log. Log presensi dan audit tetap dapat memuat nickname, jenis aktivitas, status, waktu, dan pesan operasional yang diperlukan untuk administrasi.</p>
+        </section>
+
+        <section>
+          <h2>6. Penyimpanan dan Backup</h2>
+          <p>Data utama disimpan pada database SQLite milik instalasi aplikasi. Backup database mingguan dapat dibuat secara otomatis sesuai konfigurasi retention. File kunci credential disimpan terpisah dari backup database dan harus diamankan oleh administrator.</p>
+        </section>
+
+        <section>
+          <h2>7. Layanan Eksternal</h2>
+          <p>Credential Pusaka digunakan untuk berinteraksi dengan layanan Pusaka. Aplikasi juga dapat mengakses provider kalender hari libur untuk memperoleh informasi tanggal libur; credential pengguna tidak dikirim ke provider kalender tersebut.</p>
+        </section>
+
+        <section>
+          <h2>8. Akses Administrator</h2>
+          <p>Dashboard administratif dilindungi dengan session admin. Administrator bertanggung jawab menjaga password admin, file <code>.env</code>, database, file kunci credential, server, dan akses sistem operasi tempat aplikasi berjalan.</p>
+        </section>
+
+        <section>
+          <h2>9. Penghapusan Data</h2>
+          <p>Data user aktif dapat dihapus melalui halaman Users. Log dan backup mengikuti kebijakan retention aplikasi; administrator dapat menghapus arsip yang tidak lagi diperlukan sesuai kebutuhan operasional.</p>
+        </section>
+
+        <section>
+          <h2>10. Perubahan Kebijakan</h2>
+          <p>Kebijakan ini dapat diperbarui ketika cara kerja, fitur, atau mekanisme penyimpanan aplikasi berubah. Tanggal pembaruan akan dicantumkan pada halaman ini.</p>
+        </section>
+      </article>
+    </main>
+  </body>
+</html>

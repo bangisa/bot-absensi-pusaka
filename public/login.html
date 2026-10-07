@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🤖 Admin Login · Bot Absensi Pusaka</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body class="auth-page">
+    <main class="auth-shell">
+      <section class="auth-card" aria-labelledby="login-title">
+        <div class="auth-brand">
+          <span class="brand-emoji" aria-hidden="true">🤖</span>
+          <div>
+            <strong>Bot Absensi Pusaka</strong>
+            <span>Admin Console</span>
+          </div>
+        </div>
+
+        <div class="auth-copy">
+          <h1 id="login-title">Masuk sebagai Admin</h1>
+          <p>Gunakan akun administrator untuk membuka dashboard dan pengelolaan bot.</p>
+        </div>
+
+        <form id="login-form" class="auth-form" autocomplete="on">
+          <input id="next" type="hidden" />
+          <label>
+            <span>Username</span>
+            <input id="username" name="username" type="text" autocomplete="username" required autofocus />
+          </label>
+          <label>
+            <span>Password</span>
+            <input id="password" name="password" type="password" autocomplete="current-password" required />
+          </label>
+          <button id="login-button" class="btn primary auth-submit" type="submit">Masuk</button>
+          <p id="login-message" class="form-message auth-message" aria-live="polite"></p>
+        </form>
+
+        <div class="auth-links" aria-label="Bantuan dan kebijakan">
+          <a href="/forgot-password">Lupa password?</a>
+          <span aria-hidden="true">•</span>
+          <a href="/privacy">Kebijakan Privasi</a>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/js/login.js"></script>
+  </body>
+</html>

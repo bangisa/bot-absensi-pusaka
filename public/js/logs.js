@@ -1,4 +1,4 @@
-﻿import { getLogs } from "./api.js";
+import { getLogs } from "./api.js";
 
 const PAGE_SIZE = 10;
 
@@ -14,6 +14,24 @@ const pageInfo = document.getElementById("logs-page-info");
 
 let allLogs = [];
 let currentPage = 1;
+
+const STATUS_EMOJI = {
+  success: "✅",
+  failed: "❌",
+  skipped: "⏭️",
+};
+
+const KNOWN_STATUS_EMOJI = /^(?:✅|❌|⚠️|⚠|⏭️|⏭|ℹ️|ℹ|🔄|⏳)\s*/u;
+
+function formatStatusMessage(status, message) {
+  const text = String(message ?? "").trim();
+  const emoji = STATUS_EMOJI[status];
+
+  if (!emoji) return text || "-";
+
+  const normalizedText = text.replace(KNOWN_STATUS_EMOJI, "").trim();
+  return normalizedText ? `${emoji} ${normalizedText}` : emoji;
+}
 
 function createCell(value) {
   const cell = document.createElement("td");
@@ -64,7 +82,7 @@ function createLogRow(log) {
   statusCell.appendChild(createBadge(log.status, `status-${log.status}`));
   row.appendChild(statusCell);
 
-  row.appendChild(createCell(log.message));
+  row.appendChild(createCell(formatStatusMessage(log.status, log.message)));
 
   return row;
 }

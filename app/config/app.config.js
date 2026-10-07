@@ -11,5 +11,5 @@ export const appConfig = {
 
   isProduction: env.NODE_ENV === "production",
 
-  sessionMaxAge: 1000 * 60 * 60 * 8,
+  sessionMaxAge: env.SESSION_MAX_AGE_MS,
 };

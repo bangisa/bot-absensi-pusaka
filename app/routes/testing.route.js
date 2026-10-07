@@ -1,13 +1,14 @@
 import { Router } from "express";
 
-import { findUserById } from "../models/index.js";
+import { findUserById, createAuditLog } from "../models/index.js";
 
 import { openPusaka } from "../services/index.js";
+import { logger } from "../helpers/index.js";
 
 const router = Router();
 
 // 🔹 TEST BOT
-router.get("/test-bot/:id", async (req, res) => {
+router.post("/test-bot/:id", async (req, res) => {
   try {
     const userId = Number(req.params.id);
 
@@ -22,10 +23,17 @@ router.get("/test-bot/:id", async (req, res) => {
     }
 
     await openPusaka("masuk", user);
+    createAuditLog({
+      action: "bot.manual_test",
+      actor: "local-api",
+      target_type: "user",
+      target_id: user.id,
+      metadata: { type: "masuk" },
+    });
 
     return res.send(`✅ Bot dijalankan untuk user ${user.id}`);
   } catch (err) {
-    console.error("[TEST BOT ERROR]", err);
+    logger.error("bot.manual_test_failed", err.message, { error: err });
 
     return res.status(500).send("❌ Error bot: " + err.message);
   }

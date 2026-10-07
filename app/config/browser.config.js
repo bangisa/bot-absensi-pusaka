@@ -3,7 +3,7 @@ import { env } from "./env.config.js";
 export const browserConfig = {
   headless: env.HEADLESS,
 
-  baseUrl: env.BASE_URL,
+  baseUrl: env.BASE_URL_PUSAKA,
 
   botDelay: env.BOT_DELAY,
 

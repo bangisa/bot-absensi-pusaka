@@ -1,5 +1,6 @@
 import { createLog } from "../models/index.js";
 import { formatDuration, getDuration } from "./time.helper.js";
+import { logger } from "./structured-log.helper.js";
 
 function logSuccess(type, user, startTime) {
   const duration = getDuration(startTime);
@@ -20,13 +21,13 @@ function logSuccess(type, user, startTime) {
     message,
   });
 
-  console.log(`[V] ${message} | user=${user.id}`);
+  logger.info("presence.success", message, { userId: user.id, type, durationMs: duration });
 }
 
 function logSkip(label, user, type, startTime, now) {
   const duration = getDuration(startTime);
 
-  const message = `✅ ${label} (${formatDuration(duration)})`;
+  const message = `⏭️ ${label} (${formatDuration(duration)})`;
 
   createLog({
     user_id: user.id,
@@ -37,13 +38,13 @@ function logSkip(label, user, type, startTime, now) {
     message,
   });
 
-  console.log(`[!] ${message} | user=${user.id}`);
+  logger.info("presence.skipped", message, { userId: user.id, type, durationMs: duration });
 }
 
 function logFail(label, user, type, startTime, now) {
   const duration = getDuration(startTime);
 
-  const message = `⚠️ ${label} (${formatDuration(duration)})`;
+  const message = `❌ ${label} (${formatDuration(duration)})`;
 
   createLog({
     user_id: user.id,
@@ -54,7 +55,7 @@ function logFail(label, user, type, startTime, now) {
     message,
   });
 
-  console.log(`[X] ${message} | user=${user.id}`);
+  logger.warn("presence.failed", message, { userId: user.id, type, durationMs: duration });
 }
 
 export { logSuccess, logSkip, logFail };

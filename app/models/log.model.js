@@ -1,13 +1,27 @@
 import db from "../../database/db.js";
-import { nowSQL } from "../helpers/time.helper.js";
+import { maskUsername } from "../helpers/credential.helper.js";
+import { redactString } from "../helpers/redact.helper.js";
+import { nowSQL, getZonedDateTimeBeforeDays } from "../helpers/time.helper.js";
 
-function getJakartaDateTimeBefore(days) {
-  const date = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  return date.toLocaleString("sv-SE", {
-    timeZone: "Asia/Jakarta",
-  });
+const STATUS_EMOJI = {
+  success: "✅",
+  failed: "❌",
+  skipped: "⏭️",
+};
+
+const KNOWN_STATUS_EMOJI = /^(?:✅|❌|⚠️|⚠|⏭️|⏭|ℹ️|ℹ|🔄|⏳)\s*/u;
+
+function normalizeStatusMessage(status, message) {
+  const text = String(message ?? "").trim();
+  const emoji = STATUS_EMOJI[status];
+
+  if (!emoji) return text;
+
+  const normalizedText = text.replace(KNOWN_STATUS_EMOJI, "").trim();
+  return normalizedText ? `${emoji} ${normalizedText}` : emoji;
 }
+
 
 function createLog(data) {
   const created_at = nowSQL();
@@ -22,11 +36,11 @@ function createLog(data) {
     )
     .run(
       data.user_id,
-      data.username,
+      maskUsername(data.username),
       data.nickname || null,
       data.type,
       data.status,
-      data.message,
+      redactString(normalizeStatusMessage(data.status, data.message)),
       created_at,
     );
 }
@@ -55,7 +69,7 @@ function getLogs(limit = 50) {
 }
 
 function deleteLogsOlderThan(days = 3) {
-  const cutoff = getJakartaDateTimeBefore(days);
+  const cutoff = getZonedDateTimeBeforeDays(days);
 
   return db
     .prepare(

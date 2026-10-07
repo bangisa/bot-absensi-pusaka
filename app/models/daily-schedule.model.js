@@ -1,29 +1,11 @@
-﻿import db from "../../database/db.js";
-import { nowSQL } from "../helpers/index.js";
+import db from "../../database/db.js";
+import {
+  decryptCredential,
+  nowSQL,
+  getZonedDateTimeAfterSeconds,
+} from "../helpers/index.js";
+import { getScheduleRetryDelay } from "../config/retry.config.js";
 
-function getJakartaDateTimeAfter(seconds) {
-  const date = new Date(Date.now() + seconds * 1000);
-
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(date);
-
-  const values = Object.fromEntries(
-    parts.map((part) => [part.type, part.value]),
-  );
-
-  return (
-    `${values.year}-${values.month}-${values.day} ` +
-    `${values.hour}:${values.minute}:${values.second}`
-  );
-}
 
 /**
  * Mencari satu jadwal berdasarkan user, tanggal,
@@ -154,9 +136,9 @@ function findPendingSchedulesByDate(scheduleDate, currentDateTime) {
 
     user: {
       id: row.u_id,
-      username: row.u_username,
+      username: decryptCredential(row.u_username),
       nickname: row.u_nickname,
-      password: row.u_password,
+      password: decryptCredential(row.u_password),
       latitude: row.u_latitude,
       longitude: row.u_longitude,
       auto_login: row.u_auto_login,
@@ -327,18 +309,20 @@ function markScheduleRetry(
   }
 
   /*
-   * Exponential backoff sederhana:
+   * Capped exponential backoff + jitter:
    *
-   * Percobaan ke-1 gagal:
-   * retry dalam 30 detik.
+   * Default:
+   * attempt 1 gagal -> 30-45 detik
+   * attempt 2 gagal -> 60-75 detik
+   * attempt berikutnya dibatasi base maksimum 90 detik
+   * (+ jitter 0-15 detik).
    *
-   * Percobaan ke-2 gagal:
-   * retry dalam 60 detik.
+   * Nilai dapat diatur lewat SCHEDULE_RETRY_* di .env.
    */
-  const retryDelaySeconds =
-    30 * Math.pow(2, Math.max(schedule.attempt_count - 1, 0));
+  const retryDelay = getScheduleRetryDelay(schedule.attempt_count);
+  const retryDelaySeconds = retryDelay.delaySeconds;
 
-  const nextRetryAt = getJakartaDateTimeAfter(retryDelaySeconds);
+  const nextRetryAt = getZonedDateTimeAfterSeconds(retryDelaySeconds);
 
   const retryResult = db
     .prepare(
@@ -363,6 +347,8 @@ function markScheduleRetry(
     max_attempts: schedule.max_attempts,
     next_retry_at: nextRetryAt,
     delay_seconds: retryDelaySeconds,
+    base_delay_seconds: retryDelay.baseDelaySeconds,
+    jitter_seconds: retryDelay.jitterSeconds,
   };
 }
 

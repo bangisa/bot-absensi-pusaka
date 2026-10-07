@@ -3,92 +3,338 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bot Absensi Pusaka</title>
+    <title>Dashboard · Bot Absensi Pusaka</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="/css/style.css" />
   </head>
   <body>
-    <div class="container">
-      <header class="topbar">
+    <div class="container dashboard-v2">
+      <header class="topbar dashboard-topbar">
         <a class="app-title" href="/">
-          <img src="/favicon.svg" alt="" aria-hidden="true" />
+          <span class="brand-emoji" aria-hidden="true">🤖</span>
           <span>Bot Absensi Pusaka</span>
         </a>
-        <nav class="nav-links" aria-label="Navigasi utama">
-          <a class="active" href="/">Dashboard</a>
-          <a href="/users.html">Users</a>
-          <a href="/logs.html">Logs</a>
-        </nav>
+        <div class="topbar-actions">
+          <nav class="nav-links" aria-label="Navigasi utama">
+            <a class="active" href="/">Dashboard</a>
+            <a href="/users.html">Users</a>
+            <a href="/logs.html">Logs</a>
+            <form class="logout-form" method="post" action="/auth/logout">
+              <button class="nav-logout" type="submit">Logout</button>
+            </form>
+          </nav>
+        </div>
       </header>
 
       <main>
-        <section class="page-header">
-          <h1>Dashboard</h1>
-          <div id="scheduler-status" class="status-pill offline">STOPPED</div>
-        </section>
-
-        <section class="panel split-panel">
+        <section class="dashboard-hero">
           <div>
-            <h2>Scheduler</h2>
-            <p id="scheduler-detail" class="muted">Memuat...</p>
+            <p class="eyebrow">Operations Overview</p>
+            <h1>Dashboard</h1>
+            <p class="muted">
+              Status operasional bot, jadwal hari ini, retry, backup, dan health
+              subsystem.
+            </p>
           </div>
-          <div class="button-group scheduler-actions">
-            <button id="start-btn" class="btn primary" type="button">
-              Start
-            </button>
-            <button id="stop-btn" class="btn danger" type="button" hidden>
-              Stop
+          <div class="dashboard-toolbar">
+            <div class="refresh-meta">
+              <span>WIB</span>
+              <strong id="current-time">-</strong>
+              <small id="refresh-status">Auto refresh 5 detik</small>
+            </div>
+            <button id="refresh-dashboard" class="btn secondary" type="button">
+              Refresh
             </button>
           </div>
         </section>
 
         <p id="dashboard-message" class="notice" hidden></p>
 
-        <section class="health-grid" aria-label="Status sistem">
-          <article class="card">
-            <span>Generator</span>
-            <strong id="generator-status">-</strong>
-            <small id="generator-detail">-</small>
+        <section id="lifecycle-banner" class="lifecycle-banner" hidden>
+          <div>
+            <span class="lifecycle-dot"></span>
+            <strong id="lifecycle-title">Draining</strong>
+            <p id="lifecycle-detail" class="muted">
+              Sistem sedang menyelesaikan seluruh workload.
+            </p>
+          </div>
+          <div class="lifecycle-stats">
+            <span>Running <strong id="drain-running">0</strong></span>
+            <span>Pending <strong id="drain-pending">0</strong></span>
+            <span>Retry <strong id="drain-retry">0</strong></span>
+            <span>Context <strong id="drain-contexts">0</strong></span>
+          </div>
+        </section>
+
+        <section class="summary-grid" aria-label="Ringkasan jadwal hari ini">
+          <article class="metric-card metric-success">
+            <span>Success</span>
+            <strong id="today-success">0</strong>
+            <small>Jadwal selesai</small>
           </article>
-          <article class="card">
-            <span>Queue</span>
-            <strong id="queue-status">-</strong>
-            <small id="queue-detail">-</small>
+          <article class="metric-card metric-pending">
+            <span>Pending</span>
+            <strong id="today-pending">0</strong>
+            <small>Menunggu eksekusi</small>
           </article>
-          <article class="card">
-            <span>Browser</span>
-            <strong id="browser-status">-</strong>
-            <small id="browser-detail">-</small>
+          <article class="metric-card metric-processing">
+            <span>Processing</span>
+            <strong id="today-processing">0</strong>
+            <small>Sedang diproses</small>
           </article>
-          <article class="card">
-            <span>Memory</span>
-            <strong id="memory-status">-</strong>
-            <small id="memory-detail">-</small>
+          <article class="metric-card metric-retry">
+            <span>Retry</span>
+            <strong id="today-retry">0</strong>
+            <small id="retry-next">Tidak ada retry</small>
           </article>
-          <article class="card">
-            <span>Total User</span>
-            <strong id="total-users-status">-</strong>
-            <small id="total-users-detail">Terdaftar</small>
+          <article class="metric-card metric-failed">
+            <span>Failed</span>
+            <strong id="today-failed">0</strong>
+            <small>Butuh perhatian</small>
           </article>
-          <article class="card">
-            <span>Jadwal Masuk</span>
-            <strong id="masuk-schedules-status">-</strong>
-            <small id="masuk-schedules-detail">-</small>
+          <article class="metric-card metric-skipped">
+            <span>Skipped</span>
+            <strong id="today-skipped">0</strong>
+            <small>Tidak perlu diproses</small>
           </article>
-          <article class="card">
-            <span>Jadwal Pulang</span>
-            <strong id="pulang-schedules-status">-</strong>
-            <small id="pulang-schedules-detail">-</small>
+        </section>
+
+        <section class="dashboard-grid two-column">
+          <article class="ops-card scheduler-card">
+            <div class="ops-card-header">
+              <div>
+                <p class="eyebrow">Scheduler</p>
+                <h2>Automation Engine</h2>
+              </div>
+              <div id="scheduler-status" class="mini-status status-neutral">
+                STOPPED
+              </div>
+            </div>
+            <div class="ops-list">
+              <div>
+                <span>Scheduler</span>
+                <small id="scheduler-detail">Memuat...</small>
+              </div>
+              <div>
+                <span>Generator</span>
+                <small id="generator-status">-</small>
+              </div>
+              <div>
+                <span>Last tick</span>
+                <small id="scheduler-last-tick">-</small>
+              </div>
+              <div>
+                <span>Uptime aplikasi</span>
+                <small id="uptime-status">-</small>
+              </div>
+            </div>
+            <div class="button-group scheduler-actions-v2">
+              <button id="start-btn" class="btn primary" type="button">
+                Start Scheduler
+              </button>
+              <button id="stop-btn" class="btn danger" type="button" hidden>
+                Stop Scheduler
+              </button>
+            </div>
           </article>
-          <article class="card">
-            <span>Uptime</span>
-            <strong id="uptime-status">-</strong>
-            <small id="uptime-detail">-</small>
+
+          <article class="ops-card">
+            <div class="ops-card-header">
+              <div>
+                <p class="eyebrow">Execution</p>
+                <h2>Queue & Browser</h2>
+              </div>
+              <div id="execution-health" class="mini-status">-</div>
+            </div>
+            <div class="ops-list">
+              <div>
+                <span>Queue running</span>
+                <small id="queue-running">-</small>
+              </div>
+              <div>
+                <span>Queue pending</span>
+                <small id="queue-pending">-</small>
+              </div>
+              <div>
+                <span>Concurrency</span>
+                <small id="queue-capacity">-</small>
+              </div>
+              <div>
+                <span>Browser</span>
+                <small id="browser-status">-</small>
+              </div>
+              <div>
+                <span>Active context</span>
+                <small id="browser-contexts">-</small>
+              </div>
+              <div>
+                <span>Open pages</span>
+                <small id="browser-pages">-</small>
+              </div>
+            </div>
+            <div class="runtime-setting-box">
+              <div class="runtime-setting-head">
+                <div>
+                  <span class="runtime-setting-label">Max Concurrent Jobs</span>
+                  <small id="max-concurrent-source"
+                    >Default dari konfigurasi</small
+                  >
+                </div>
+                <div class="runtime-setting-controls">
+                  <select
+                    id="max-concurrent-input"
+                    aria-label="Max Concurrent Jobs"
+                  >
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                  </select>
+                  <button
+                    id="save-max-concurrent"
+                    class="btn secondary small-btn"
+                    type="button"
+                  >
+                    Simpan
+                  </button>
+                </div>
+              </div>
+              <p class="resource-warning">
+                ⚠️ Nilai lebih tinggi menjalankan lebih banyak job/browser
+                secara paralel dan membutuhkan resource CPU serta RAM yang lebih
+                besar. Naikkan secara bertahap sesuai kapasitas server.
+              </p>
+            </div>
+          </article>
+        </section>
+
+        <section class="dashboard-grid three-column">
+          <article class="ops-card compact-card">
+            <div class="ops-card-header">
+              <div>
+                <p class="eyebrow">Storage</p>
+                <h2>Database Backup</h2>
+              </div>
+              <div id="backup-health" class="mini-status">-</div>
+            </div>
+            <div class="ops-list compact-list">
+              <div>
+                <span>Terakhir</span>
+                <small id="backup-last">-</small>
+              </div>
+              <div>
+                <span>Durasi</span>
+                <small id="backup-duration">-</small>
+              </div>
+              <div>
+                <span>Retention</span>
+                <small id="backup-retention">-</small>
+              </div>
+              <div>
+                <span>Status</span>
+                <small id="backup-running">-</small>
+              </div>
+            </div>
+          </article>
+
+          <article class="ops-card compact-card holiday-card">
+            <div class="ops-card-header">
+              <div>
+                <p class="eyebrow">Calendar</p>
+                <h2>Holiday Provider</h2>
+              </div>
+              <div id="holiday-health" class="mini-status">-</div>
+            </div>
+            <div class="ops-list compact-list">
+              <div><span>Source</span><small id="holiday-source">-</small></div>
+              <div>
+                <span>Available</span><small id="holiday-available">-</small>
+              </div>
+              <div>
+                <span>Hari libur</span><small id="holiday-status">-</small>
+              </div>
+              <div>
+                <span>Keterangan</span><small id="holiday-name">-</small>
+              </div>
+            </div>
+          </article>
+
+          <article class="ops-card compact-card">
+            <div class="ops-card-header">
+              <div>
+                <p class="eyebrow">System</p>
+                <h2>Core Health</h2>
+              </div>
+              <div id="core-health" class="mini-status">-</div>
+            </div>
+            <div class="ops-list compact-list">
+              <div>
+                <span>Database</span><small id="database-status">-</small>
+              </div>
+              <div><span>Vault</span><small id="vault-status">-</small></div>
+              <div>
+                <span>Logging</span><small id="logging-status">-</small>
+              </div>
+              <div><span>Memory</span><small id="memory-status">-</small></div>
+              <div><span>Disk free</span><small id="disk-status">-</small></div>
+              <div>
+                <span>Timezone</span><small id="timezone-status">-</small>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="dashboard-grid two-column lower-grid">
+          <article class="ops-card">
+            <div class="ops-card-header">
+              <div>
+                <p class="eyebrow">Automation</p>
+                <h2>Recent Result</h2>
+              </div>
+              <a class="text-link" href="/logs.html">Lihat semua log</a>
+            </div>
+            <div class="result-grid">
+              <div class="result-item success-result">
+                <span>Last success</span>
+                <small id="last-success-type">-</small>
+                <small id="last-success-at">Belum ada data</small>
+              </div>
+              <div class="result-item failed-result">
+                <span>Last failure</span>
+                <small id="last-failure-type">-</small>
+                <small id="last-failure-at">Belum ada data</small>
+              </div>
+            </div>
+            <div class="recent-failure-strip">
+              <span>Failure 60 menit terakhir</span>
+              <small id="recent-failures">0</small>
+            </div>
+          </article>
+
+          <article class="ops-card">
+            <div class="ops-card-header">
+              <div>
+                <p class="eyebrow">Audit</p>
+                <h2>Recent Admin Activity</h2>
+              </div>
+              <button
+                id="refresh-audit"
+                class="btn ghost small-btn"
+                type="button"
+              >
+                Refresh
+              </button>
+            </div>
+            <div id="audit-list" class="activity-list">
+              <p class="muted">Memuat aktivitas...</p>
+            </div>
           </article>
         </section>
       </main>
     </div>
 
     <script type="module" src="/js/dashboard.js"></script>
+    <script type="module" src="/js/auth-ui.js"></script>
   </body>
 </html>

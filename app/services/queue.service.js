@@ -1,7 +1,28 @@
 import { queueConfig } from "../config/index.js";
+import { getSystemSetting, setSystemSetting } from "../models/index.js";
 
-const MAX_CONCURRENT = queueConfig.maxConcurrent;
+const MIN_CONCURRENT = 1;
+const MAX_CONCURRENT_LIMIT = 5;
 const TASK_TIMEOUT = queueConfig.taskTimeout;
+const SETTING_KEY = "max_concurrent";
+
+function clampConcurrent(value) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) return null;
+  if (parsed < MIN_CONCURRENT || parsed > MAX_CONCURRENT_LIMIT) return null;
+  return parsed;
+}
+
+function resolveInitialMaxConcurrent() {
+  const persisted = getSystemSetting(SETTING_KEY);
+  const persistedValue = clampConcurrent(persisted?.value);
+  if (persistedValue !== null) return persistedValue;
+
+  const fallback = clampConcurrent(queueConfig.maxConcurrent);
+  return fallback ?? 2;
+}
+
+let maxConcurrent = resolveInitialMaxConcurrent();
 
 /**
  * Menyimpan antrean berdasarkan user.
@@ -109,7 +130,7 @@ function runUserTask(userId) {
     return;
   }
 
-  if (running >= MAX_CONCURRENT) {
+  if (running >= maxConcurrent) {
     return;
   }
 
@@ -120,7 +141,7 @@ function runUserTask(userId) {
 
   console.log(
     `[QUEUE] Start user=${userId} | ` +
-      `running=${running}/${MAX_CONCURRENT} | ` +
+      `running=${running}/${maxConcurrent} | ` +
       `userPending=${queue.length} | ` +
       `totalPending=${getPendingCount()}`,
   );
@@ -138,7 +159,7 @@ function runUserTask(userId) {
 
       console.log(
         `[QUEUE] Done user=${userId} | ` +
-          `running=${running}/${MAX_CONCURRENT} | ` +
+          `running=${running}/${maxConcurrent} | ` +
           `userPending=${queue.length} | ` +
           `totalPending=${getPendingCount()}`,
       );
@@ -160,7 +181,7 @@ function runUserTask(userId) {
  * Mengisi seluruh slot concurrency yang tersedia.
  */
 function processQueue() {
-  while (running < MAX_CONCURRENT) {
+  while (running < maxConcurrent) {
     const userId = findNextReadyUserId();
 
     if (userId === null) {
@@ -224,11 +245,59 @@ function getQueueStatus() {
   return {
     running,
     pending: getPendingCount(),
-    maxConcurrent: MAX_CONCURRENT,
+    maxConcurrent,
+    minConcurrent: MIN_CONCURRENT,
+    maxConcurrentLimit: MAX_CONCURRENT_LIMIT,
     activeUserCount: activeUsers.size,
     queuedUserCount: userQueues.size,
     users,
   };
 }
 
-export { addToQueue, getQueueStatus };
+function getMaxConcurrentSetting() {
+  const persisted = getSystemSetting(SETTING_KEY);
+
+  return {
+    value: maxConcurrent,
+    min: MIN_CONCURRENT,
+    max: MAX_CONCURRENT_LIMIT,
+    source: persisted ? "runtime" : "env",
+    envDefault: queueConfig.maxConcurrent,
+    updatedAt: persisted?.updated_at ?? null,
+  };
+}
+
+function setMaxConcurrent(value) {
+  const nextValue = clampConcurrent(value);
+
+  if (nextValue === null) {
+    const error = new RangeError(
+      `MAX_CONCURRENT harus integer antara ${MIN_CONCURRENT} dan ${MAX_CONCURRENT_LIMIT}`,
+    );
+    error.code = "INVALID_MAX_CONCURRENT";
+    throw error;
+  }
+
+  const previousValue = maxConcurrent;
+  const persisted = setSystemSetting(SETTING_KEY, nextValue);
+  maxConcurrent = nextValue;
+
+  // Jika kapasitas dinaikkan, isi slot baru segera. Jika diturunkan,
+  // task aktif tetap dibiarkan selesai dan task baru menunggu secara alami.
+  processQueue();
+
+  return {
+    previousValue,
+    value: maxConcurrent,
+    min: MIN_CONCURRENT,
+    max: MAX_CONCURRENT_LIMIT,
+    updatedAt: persisted.updated_at,
+  };
+}
+
+export {
+  addToQueue,
+  getMaxConcurrentSetting,
+  getQueueStatus,
+  setMaxConcurrent,
+};

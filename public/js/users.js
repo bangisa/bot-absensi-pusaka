@@ -1,4 +1,4 @@
-﻿import { getUsers, createUser, deleteUser } from "./api.js";
+import { getUsers, createUser, deleteUser } from "./api.js";
 
 const PAGE_SIZE = 10;
 
@@ -92,14 +92,14 @@ function createUserRow(user) {
   deleteButton.textContent = "Hapus";
 
   deleteButton.addEventListener("click", async () => {
-    if (!confirm(`Hapus user ${user.username}?`)) return;
+    if (!confirm(`Hapus user ${user.usernameMasked || user.nickname || user.id}?`)) return;
 
     try {
       deleteButton.disabled = true;
       deleteButton.textContent = "Menghapus...";
       await deleteUser(user.id);
       await loadUsers();
-      setMessage(`User ${user.username} dihapus.`);
+      setMessage(`User ${user.usernameMasked || user.nickname || user.id} dihapus.`);
     } catch (err) {
       console.error(err);
       setMessage(err.message || "Gagal menghapus user", "error");

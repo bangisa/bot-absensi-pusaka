@@ -6,6 +6,7 @@ import {
 
 import { findAllUsers } from "../models/user.model.js";
 import { checkNationalHoliday } from "./holiday.service.js";
+import { getZonedDate, getZonedDay, getZonedTime } from "../helpers/time.helper.js";
 
 /**
  * Mengubah waktu HH:mm menjadi jumlah menit.
@@ -117,42 +118,8 @@ function isTimeAfter(time, targetTime) {
   return timeToSeconds(time) > timeToSeconds(targetTime);
 }
 
-/**
- * Mendapatkan tanggal lokal Asia/Jakarta dalam format YYYY-MM-DD.
- */
-function getJakartaDate(date = new Date()) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
 
-/**
- * Mendapatkan nama hari lokal Asia/Jakarta.
- */
-function getJakartaDay(date = new Date()) {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Jakarta",
-    weekday: "long",
-  })
-    .format(date)
-    .toLowerCase();
-}
 
-/**
- * Mendapatkan waktu lokal Asia/Jakarta dalam format HH:mm.
- */
-function getJakartaTime(date = new Date()) {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Jakarta",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(date);
-}
 
 /**
  * Menentukan rentang jadwal masuk.
@@ -191,10 +158,13 @@ function getPulangRange(dayName) {
 /**
  * Membuat jadwal harian untuk seluruh pengguna.
  */
-async function generateDailySchedules(date = new Date()) {
-  const scheduleDate = getJakartaDate(date);
-  const dayName = getJakartaDay(date);
-  const currentTime = getJakartaTime(date);
+async function generateDailySchedules(date = new Date(), { shouldContinue = () => true } = {}) {
+  const scheduleDate = getZonedDate(date);
+  const dayName = getZonedDay(date);
+  const currentTime = getZonedTime(date);
+
+  const cancelled = () => ({ schedule_date: scheduleDate, generated: 0, skipped: 0, cancelled: true });
+  if (!shouldContinue()) return cancelled();
 
   if (dayName === "sunday") {
     return {
@@ -206,6 +176,9 @@ async function generateDailySchedules(date = new Date()) {
   }
 
   const holiday = await checkNationalHoliday(scheduleDate);
+
+  // Stop/shutdown may arrive while the holiday provider is still responding.
+  if (!shouldContinue()) return cancelled();
 
   if (!holiday.available) {
     console.log(
@@ -292,6 +265,11 @@ async function generateDailySchedules(date = new Date()) {
     holiday,
   };
 }
+
+
+const getJakartaDate = getZonedDate;
+const getJakartaDay = getZonedDay;
+const getJakartaTime = getZonedTime;
 
 export {
   generateDailySchedules,

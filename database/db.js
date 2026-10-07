@@ -1,5 +1,11 @@
 import Database from "better-sqlite3";
-import { resolvePath } from "../app/helpers/index.js";
+import {
+  createCredentialLookup,
+  decryptCredential,
+  encryptCredential,
+  maskUsername,
+  resolvePath,
+} from "../app/helpers/index.js";
 
 const path = resolvePath(import.meta.url);
 
@@ -21,6 +27,66 @@ function ensureColumn(tableName, columnName, definition) {
     ).run();
 
     console.log(`[DB] Kolom ${tableName}.${columnName} ditambahkan`);
+  }
+}
+
+
+function migrateUserCredentials() {
+  const users = db
+    .prepare(
+      `
+      SELECT id, username, username_hash, password
+      FROM users
+      `,
+    )
+    .all();
+
+  const updateUser = db.prepare(
+    `
+    UPDATE users
+    SET username = ?, username_hash = ?, password = ?
+    WHERE id = ?
+    `,
+  );
+
+  const logs = db
+    .prepare(
+      `
+      SELECT id, username
+      FROM logs
+      WHERE username IS NOT NULL
+      `,
+    )
+    .all();
+
+  const updateLogUsername = db.prepare(
+    `
+    UPDATE logs
+    SET username = ?
+    WHERE id = ?
+    `,
+  );
+
+  db.transaction(() => {
+    for (const user of users) {
+      const plainUsername = decryptCredential(user.username);
+      const plainPassword = decryptCredential(user.password);
+
+      updateUser.run(
+        encryptCredential(plainUsername),
+        createCredentialLookup(plainUsername),
+        encryptCredential(plainPassword),
+        user.id,
+      );
+    }
+
+    for (const log of logs) {
+      updateLogUsername.run(maskUsername(log.username), log.id);
+    }
+  })();
+
+  if (users.length > 0) {
+    console.log(`[SECURITY] ${users.length} credential user diverifikasi/terenkripsi`);
   }
 }
 
@@ -138,6 +204,36 @@ try {
 
   db.prepare(
     `
+      CREATE TABLE IF NOT EXISTS system_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `,
+  ).run();
+
+  db.prepare(
+    `
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action TEXT NOT NULL,
+        actor TEXT,
+        target_type TEXT,
+        target_id TEXT,
+        status TEXT NOT NULL DEFAULT 'success',
+        metadata TEXT,
+        created_at TEXT NOT NULL
+      )
+    `,
+  ).run();
+
+  db.prepare(
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at
+     ON audit_logs(created_at)`,
+  ).run();
+
+  db.prepare(
+    `
       CREATE TABLE IF NOT EXISTS daily_schedules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -185,11 +281,21 @@ try {
   ensureColumn("daily_schedules", "next_retry_at", "TEXT");
 
   migrateUsersScheduleColumns();
+  ensureColumn("users", "username_hash", "TEXT");
+  migrateUserCredentials();
 
   db.prepare(
     `
       CREATE INDEX IF NOT EXISTS idx_logs_user
       ON logs(user_id)
+    `,
+  ).run();
+
+  db.prepare(
+    `
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_hash
+      ON users(username_hash)
+      WHERE username_hash IS NOT NULL
     `,
   ).run();
 
@@ -252,4 +358,21 @@ try {
   process.exit(1);
 }
 
+function closeDatabase() {
+  if (!db.open) {
+    return false;
+  }
+
+  try {
+    db.pragma("wal_checkpoint(TRUNCATE)");
+  } catch (err) {
+    console.log("[DB] WAL checkpoint warning:", err.message);
+  }
+
+  db.close();
+  console.log("[DB] Database closed");
+  return true;
+}
+
+export { closeDatabase };
 export default db;

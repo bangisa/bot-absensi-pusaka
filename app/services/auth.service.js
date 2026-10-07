@@ -8,7 +8,7 @@ async function autoLogin(page, user) {
       waitUntil: "domcontentloaded",
     });
 
-    console.log(`[i] Login: ${user.username}`);
+    console.log(`[i] Login user id=${user.id}`);
 
     await page.waitForSelector("input[name='email']", { timeout: 15000 });
 

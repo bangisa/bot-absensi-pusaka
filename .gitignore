@@ -58,3 +58,13 @@ dist/
 # Temporary artifacts
 *.tmp
 *.bak
+
+# Local credential vault key
+.secrets/
+
+# Runtime holiday cache
+data/holiday-cache.json
+data/holiday-cache.json.tmp
+
+# Local database backups
+backups/
