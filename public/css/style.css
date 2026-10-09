@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg: #111827;
   --panel: #1f2937;
   --panel-2: #172033;
@@ -284,6 +284,45 @@ h2 {
 
 .modal::backdrop {
   background: rgba(0, 0, 0, 0.62);
+}
+
+.users-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+.users-heading h1,
+.users-heading p {
+  margin: 0;
+}
+
+#user-modal {
+  width: min(600px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+}
+#user-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+#user-form .modal-header,
+#user-form .form-actions {
+  grid-column: 1 / -1;
+}
+#user-form label {
+  min-width: 0;
+  align-self: stretch;
+  grid-template-rows: 1fr auto;
+}
+#user-form input,
+#user-form select {
+  min-width: 0;
+}
+#user-form .field-hint {
+  display: block;
 }
 
 .modal-content {
@@ -605,6 +644,14 @@ select:focus {
   font-size: 13px;
 }
 
+.auth-brand .login-brand-icon {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  font-size: 32px;
+  margin-top: 0;
+}
+
 .auth-copy {
   display: grid;
   gap: 8px;
@@ -651,6 +698,16 @@ select:focus {
   text-align: center;
 }
 
+#login-message {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+#login-message.error,
 .auth-message.error {
   color: #f87171;
 }
@@ -673,6 +730,7 @@ select:focus {
 }
 
 .dashboard-hero {
+  flex-wrap: wrap;
   display: flex;
   align-items: end;
   justify-content: space-between;
@@ -698,10 +756,77 @@ select:focus {
   gap: 12px;
 }
 
+.dashboard-setting,
+.backup-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.dashboard-setting {
+  min-width: 0;
+}
+.dashboard-setting > label {
+  font-weight: 600;
+  color: #f8fafc;
+}
+.backup-actions .btn {
+  width: 100%;
+}
+.backup-actions small,
+.dashboard-setting small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.backup-actions small:empty {
+  display: none;
+}
+.dashboard-setting input,
+.dashboard-setting select {
+  width: 100%;
+  min-width: 0;
+}
+.setting-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.setting-actions select {
+  flex: 1 1 160px;
+}
+
 .refresh-meta {
   display: grid;
-  justify-items: end;
+  justify-items: start;
   gap: 2px;
+}
+
+.dashboard-date-time {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, auto);
+  gap: 18px;
+  width: 100%;
+  align-items: start;
+}
+
+.dashboard-date,
+.dashboard-clock {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.dashboard-date-time span {
+  overflow-wrap: anywhere;
+}
+
+.dashboard-date-time strong {
+  line-height: 28px;
+}
+
+.dashboard-clock strong {
+  white-space: nowrap;
 }
 
 .refresh-meta span {
@@ -712,7 +837,7 @@ select:focus {
 }
 
 .refresh-meta strong {
-  font-size: 20px;
+  font-size: 18px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1103,10 +1228,6 @@ select:focus {
     width: 100%;
   }
 
-  .refresh-meta {
-    justify-items: start;
-  }
-
   .dashboard-grid.two-column,
   .dashboard-grid.three-column,
   .result-grid {
@@ -1172,6 +1293,11 @@ select:focus {
 }
 
 .auth-links-single {
+  justify-content: flex-start;
+}
+
+.privacy-back-link {
+  margin-top: 24px;
   justify-content: flex-start;
 }
 

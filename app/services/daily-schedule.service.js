@@ -5,6 +5,7 @@ import {
 } from "../models/daily-schedule.model.js";
 
 import { findAllUsers } from "../models/user.model.js";
+import { canUseServiceDay } from "../models/user-service.model.js";
 import { checkNationalHoliday } from "./holiday.service.js";
 import { getZonedDate, getZonedDay, getZonedTime } from "../helpers/time.helper.js";
 
@@ -202,6 +203,7 @@ async function generateDailySchedules(date = new Date(), { shouldContinue = () =
   let skipped = 0;
 
   for (const user of users) {
+    if (!canUseServiceDay(user.id, scheduleDate)) { skipped += 2; continue; }
     const masukRange = getMasukRange();
 
     const existingMasuk = findDailySchedule(user.id, scheduleDate, "masuk");

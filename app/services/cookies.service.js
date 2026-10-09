@@ -1,6 +1,11 @@
 import fs from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
+import db from "../../database/db.js";
+
+function credentialVersion(id) {
+  return db.prepare("SELECT credential_version FROM users WHERE id = ?").get(id)?.credential_version;
+}
 
 const COOKIE_DIR = path.resolve("cookies");
 
@@ -22,7 +27,9 @@ async function saveCookies(page, userId) {
 
     const cookies = await page.cookies();
 
-    await fs.writeFile(getCookiePath(userId), JSON.stringify(cookies, null, 2));
+    const version = credentialVersion(userId);
+    if (version === undefined) return;
+    await fs.writeFile(getCookiePath(userId), JSON.stringify({ version, cookies }, null, 2));
 
     console.log(`[COOKIE] Saved user=${userId}`);
   } catch (err) {
@@ -38,9 +45,13 @@ async function loadCookies(page, userId) {
       return false;
     }
 
-    const cookies = JSON.parse(await fs.readFile(cookiePath, "utf-8"));
+    const stored = JSON.parse(await fs.readFile(cookiePath, "utf-8"));
+    const version = credentialVersion(userId);
+    const storedVersion = Array.isArray(stored) ? 0 : stored.version;
+    if (version === undefined || version !== storedVersion) return false;
+    const cookies = Array.isArray(stored) ? stored : stored.cookies;
 
-    if (!cookies.length) {
+    if (!Array.isArray(cookies) || !cookies.length) {
       return false;
     }
 

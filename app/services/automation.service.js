@@ -4,6 +4,9 @@ import { getPage, releasePage } from "./page.service.js";
 import { ensureLogin } from "./auth.service.js";
 import { gotoPresence, handlePresenceFlow } from "./presence.service.js";
 import { nowID, randomPointInRadius } from "../helpers/index.js";
+import { beginUserOperation, endUserOperation } from "./user-operation.service.js";
+import { findUserById } from "../models/user.model.js";
+import { useServiceDayForExecution } from "./user-service-day.service.js";
 
 const AUTOMATION_TIMEOUT = Math.max(1000, queueConfig.taskTimeout - 10000);
 
@@ -50,7 +53,8 @@ function runWithAutomationTimeout(task, { timeoutMs, onTimeout }) {
 }
 
 // 🚀 MAIN ENGINE
-async function openPusaka(type, user) {
+async function openPusaka(type, user, { serviceDate } = {}) {
+  beginUserOperation(user.id);
   const startTime = Date.now();
   const now = nowID();
 
@@ -60,6 +64,11 @@ async function openPusaka(type, user) {
   let context = null;
 
   try {
+    // Refresh queued credentials and debit once, only when automation starts.
+    user = findUserById(user.id) ?? user;
+    if (!await useServiceDayForExecution(user.id, serviceDate)) {
+      return { status: "skipped", message: "Hari libur atau kuota hari layanan telah habis." };
+    }
     ({ page, context } = await getPage(user));
 
     if (!page || !context) {
@@ -145,7 +154,8 @@ async function openPusaka(type, user) {
       cause: err,
     });
   } finally {
-    await releasePage(page, context);
+    try { await releasePage(page, context); }
+    finally { endUserOperation(user.id); }
   }
 }
 

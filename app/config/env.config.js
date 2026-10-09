@@ -128,7 +128,7 @@ export const env = {
 
   DB_BACKUP_RETENTION_COUNT: toNumber(
     process.env.DB_BACKUP_RETENTION_COUNT,
-    8,
+    4,
   ),
 
   SECURITY_HEADERS_ENABLED: toBool(process.env.SECURITY_HEADERS_ENABLED, true),

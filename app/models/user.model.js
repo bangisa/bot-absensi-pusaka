@@ -6,7 +6,10 @@ import {
   hydrateUserCredentials,
   maskUsername,
 } from "../helpers/index.js";
-import { validateUser } from "../validators/user.validator.js";
+import { validateUser, validateUserInput } from "../validators/user.validator.js";
+import { nowSQL } from "../helpers/time.helper.js";
+import { createAuditLog } from "./audit-log.model.js";
+import { isUserOperationActive } from "../services/user-operation.service.js";
 
 // 📥 GET ALL
 function findAllUsers() {
@@ -29,6 +32,8 @@ function findAllPublicUsers() {
         latitude,
         longitude,
         auto_login,
+        service_days_total, service_days_used, service_status,
+        service_started_at, service_completed_at,
         CASE
           WHEN username IS NOT NULL AND username <> ''
            AND password IS NOT NULL AND password <> ''
@@ -47,6 +52,12 @@ function findAllPublicUsers() {
       latitude: row.latitude,
       longitude: row.longitude,
       auto_login: row.auto_login,
+      service_days_total: row.service_days_total,
+      service_days_used: row.service_days_used,
+      service_days_remaining: row.service_days_total === null ? null : Math.max(0, row.service_days_total - row.service_days_used),
+      service_status: row.service_status,
+      service_started_at: row.service_started_at,
+      service_completed_at: row.service_completed_at,
     }));
 }
 
@@ -104,48 +115,65 @@ function insertUser(data) {
       usernameHash,
       data.nickname || null,
       encryptedPassword,
-      data.latitude || geoConfig.defaultLat,
-      data.longitude || geoConfig.defaultLng,
+      data.latitude ?? geoConfig.defaultLat,
+      data.longitude ?? geoConfig.defaultLng,
       data.auto_login ?? 1,
     );
 }
 
 // ✏️ UPDATE
 function updateUser(id, data) {
+  data = validateUserInput(data, { partial: true });
+  if (isUserOperationActive(id)) throw Object.assign(new Error("User sedang diproses."), { status: 409 });
   const current = db.prepare("SELECT * FROM users WHERE id = ?").get(id);
 
   if (!current) {
-    throw new Error("User tidak ditemukan");
+    throw Object.assign(new Error("User tidak ditemukan"), { status: 404 });
   }
 
-  const currentHydrated = hydrateUserCredentials(current);
-  const username = String(data.username ?? currentHydrated.username).trim();
-  const password = data.password || currentHydrated.password;
+  const changes = {};
+  for (const key of ["nickname", "latitude", "longitude", "service_days_total"]) {
+    if (key in data && data[key] !== current[key]) changes[key] = data[key];
+  }
+  if (data.username || data.password) {
+    const plain = hydrateUserCredentials(current);
+    if (data.username && data.username !== plain.username) {
+      changes.username = encryptCredential(data.username);
+      changes.username_hash = createCredentialLookup(data.username);
+    }
+    if (data.password && data.password !== plain.password) changes.password = encryptCredential(data.password);
+  }
+  const credentialsChanged = Boolean(changes.username || changes.password);
+  if (credentialsChanged) changes.credential_version = current.credential_version + 1;
+  if ("service_days_total" in changes) {
+    const completed = changes.service_days_total !== null && current.service_days_used >= changes.service_days_total;
+    changes.service_status = completed ? "completed" : "active";
+    changes.service_completed_at = completed ? current.service_completed_at || nowSQL() : null;
+  }
+  const keys = Object.keys(changes);
+  return db.transaction(() => {
+    if (keys.length) {
+      db.prepare(`UPDATE users SET ${keys.map(key => `${key} = ?`).join(", ")} WHERE id = ?`).run(...keys.map(key => changes[key]), id);
+      createAuditLog({ action: "user.update", actor: "admin", target_type: "user", target_id: id,
+        metadata: { fields: keys.filter(key => !["username_hash", "credential_version"].includes(key)), credentialsChanged } });
+      if ("service_days_total" in changes) createAuditLog({ action: "user.plan_changed", actor: "admin", target_type: "user", target_id: id,
+        metadata: { oldPlan: current.service_days_total, newPlan: changes.service_days_total, used: current.service_days_used } });
+    }
+    return { changes: keys.length ? 1 : 0, credentialsChanged };
+  })();
+}
 
-  return db
-    .prepare(
-      `
-    UPDATE users SET
-      username = ?,
-      username_hash = ?,
-      nickname = ?,
-      password = ?,
-      latitude = ?,
-      longitude = ?,
-      auto_login = ?
-    WHERE id = ?
-  `,
-    )
-    .run(
-      encryptCredential(username),
-      createCredentialLookup(username),
-      data.nickname ?? current.nickname ?? null,
-      encryptCredential(password),
-      data.latitude || current.latitude || geoConfig.defaultLat,
-      data.longitude || current.longitude || geoConfig.defaultLng,
-      data.auto_login ?? current.auto_login ?? 1,
-      id,
-    );
+function createManagedUser(input) {
+  const data = validateUserInput(input);
+  return db.transaction(() => {
+    const result = insertUser(data);
+    if (!result.changes) throw new Error("Username sudah digunakan.");
+    db.prepare("UPDATE users SET service_days_total = ? WHERE id = ?").run(data.service_days_total ?? null, result.lastInsertRowid);
+    createAuditLog({ action: "user.create", actor: "admin", target_type: "user", target_id: result.lastInsertRowid });
+    createAuditLog({ action: "user.plan_changed", actor: "admin", target_type: "user", target_id: result.lastInsertRowid,
+      metadata: { oldPlan: null, newPlan: data.service_days_total ?? null, used: 0 } });
+    return result;
+  })();
 }
 
 // ❌ DELETE
@@ -208,6 +236,7 @@ function insertUsers(users) {
 }
 
 export {
+  createManagedUser,
   findAllUsers,
   findAllPublicUsers,
   findPublicUserById,

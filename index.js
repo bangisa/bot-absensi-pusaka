@@ -39,6 +39,9 @@ import {
 
 validateProductionSecurityConfig();
 
+import { initializeRuntimeTimezone } from "./app/services/timezone-setting.service.js";
+initializeRuntimeTimezone();
+
 const app = express();
 const PORT = appConfig.port;
 

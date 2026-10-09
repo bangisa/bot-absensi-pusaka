@@ -136,7 +136,7 @@ function enqueueScheduleTask(dailySchedule, user) {
     );
 
     try {
-      const result = await openPusaka(type, user);
+      const result = await openPusaka(type, user, { serviceDate: dailySchedule.schedule_date });
 
       const message = result?.message ?? `Presensi ${type} selesai`;
 

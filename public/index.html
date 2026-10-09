@@ -38,8 +38,16 @@
           </div>
           <div class="dashboard-toolbar">
             <div class="refresh-meta">
-              <span>WIB</span>
-              <strong id="current-time">-</strong>
+              <div class="dashboard-date-time">
+                <div class="dashboard-date">
+                  <span id="current-day">Hari Ini</span>
+                  <strong id="current-date">-</strong>
+                </div>
+                <div class="dashboard-clock">
+                  <span id="current-timezone">-</span>
+                  <strong id="current-time">-</strong>
+                </div>
+              </div>
               <small id="refresh-status">Auto refresh 5 detik</small>
             </div>
             <button id="refresh-dashboard" class="btn secondary" type="button">
@@ -193,7 +201,7 @@
                   </select>
                   <button
                     id="save-max-concurrent"
-                    class="btn secondary small-btn"
+                    class="btn primary"
                     type="button"
                   >
                     Simpan
@@ -236,6 +244,16 @@
                 <small id="backup-running">-</small>
               </div>
             </div>
+            <div class="backup-actions">
+              <button
+                id="backup-now"
+                class="btn secondary btn-small"
+                type="button"
+              >
+                Backup
+              </button>
+              <small id="backup-now-status" role="status"></small>
+            </div>
           </article>
 
           <article class="ops-card compact-card holiday-card">
@@ -252,12 +270,49 @@
                 <span>Available</span><small id="holiday-available">-</small>
               </div>
               <div>
-                <span>Hari libur</span><small id="holiday-status">-</small>
+                <span>Status Hari Ini</span><small id="holiday-status">-</small>
               </div>
               <div>
                 <span>Keterangan</span><small id="holiday-name">-</small>
               </div>
             </div>
+            <form
+              id="holiday-settings-form"
+              class="dashboard-setting runtime-setting-box"
+            >
+              <label for="holiday-calendar-url">URL Kalender JSON</label>
+              <input
+                id="holiday-calendar-url"
+                type="url"
+                required
+                maxlength="512"
+                placeholder="https://api.kemendesa.link/libur-nasional/api/holidays/latest"
+              />
+              <div class="setting-actions">
+                <button
+                  id="test-holiday-calendar"
+                  type="button"
+                  class="btn secondary"
+                >
+                  Tes Koneksi
+                </button>
+                <button
+                  id="save-holiday-calendar"
+                  type="submit"
+                  class="btn primary"
+                >
+                  Simpan
+                </button>
+                <button
+                  id="reset-holiday-calendar"
+                  type="button"
+                  class="btn secondary"
+                >
+                  Gunakan API .env
+                </button>
+              </div>
+              <small id="holiday-setting-status" role="status">-</small>
+            </form>
           </article>
 
           <article class="ops-card compact-card">
@@ -282,6 +337,23 @@
                 <span>Timezone</span><small id="timezone-status">-</small>
               </div>
             </div>
+            <form
+              id="timezone-settings-form"
+              class="dashboard-setting runtime-setting-box"
+            >
+              <label for="timezone-input">Ubah Timezone</label>
+              <div class="setting-actions">
+                <select id="timezone-input">
+                  <option value="Asia/Jakarta">WIB - Asia/Jakarta</option>
+                  <option value="Asia/Makassar">WITA - Asia/Makassar</option>
+                  <option value="Asia/Jayapura">WIT - Asia/Jayapura</option>
+                </select>
+                <button id="save-timezone" type="submit" class="btn primary">
+                  Simpan
+                </button>
+              </div>
+              <small id="timezone-setting-status" role="status">-</small>
+            </form>
           </article>
         </section>
 

@@ -73,7 +73,6 @@ async function stopScheduler() {
   });
 }
 
-
 async function getMaxConcurrentSetting() {
   return request(`${API_BASE}/settings/max-concurrent`);
 }
@@ -89,6 +88,28 @@ async function getUsers() {
   return request(USER_API);
 }
 
+async function getHolidayCalendarSetting() {
+  return request(`${API_BASE}/settings/holiday-calendar`);
+}
+
+async function changeHolidayCalendar(method, url) {
+  return request(`${API_BASE}/settings/holiday-calendar${method === "POST" ? "/test" : ""}`, {
+    method,
+    body: method === "DELETE" ? undefined : JSON.stringify({ url }),
+  });
+}
+
+async function getTimezoneSetting() {
+  return request(`${API_BASE}/settings/timezone`);
+}
+
+async function updateTimezone(value) {
+  return request(`${API_BASE}/settings/timezone`, {
+    method: "PUT",
+    body: JSON.stringify({ value }),
+  });
+}
+
 async function createUser(data) {
   return request(USER_API, {
     method: "POST",
@@ -102,7 +123,24 @@ async function deleteUser(id) {
   });
 }
 
+async function updateUser(id, data) {
+  return request(`${USER_API}/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+async function backupNow() {
+  return request(`${API_BASE}/backup`, { method: "POST" });
+}
+
 export {
+  backupNow,
+  updateUser,
+  getHolidayCalendarSetting,
+  changeHolidayCalendar,
+  getTimezoneSetting,
+  updateTimezone,
   getStatus,
   getHealth,
   getDiagnostics,

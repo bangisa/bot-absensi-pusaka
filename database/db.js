@@ -284,6 +284,22 @@ try {
   ensureColumn("users", "username_hash", "TEXT");
   migrateUserCredentials();
 
+  // Additive, idempotent service migration; historical users remain unlimited.
+  db.transaction(() => {
+    ensureColumn("users", "service_days_total", "INTEGER DEFAULT NULL");
+    ensureColumn("users", "service_days_used", "INTEGER NOT NULL DEFAULT 0");
+    ensureColumn("users", "service_status", "TEXT NOT NULL DEFAULT 'active'");
+    ensureColumn("users", "service_started_at", "TEXT");
+    ensureColumn("users", "service_completed_at", "TEXT");
+    ensureColumn("users", "credential_version", "INTEGER NOT NULL DEFAULT 0");
+    db.exec(`CREATE TABLE IF NOT EXISTS user_service_days (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      service_date TEXT NOT NULL,
+      used_at TEXT NOT NULL,
+      PRIMARY KEY(user_id, service_date)
+    )`);
+  })();
+
   db.prepare(
     `
       CREATE INDEX IF NOT EXISTS idx_logs_user

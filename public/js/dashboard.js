@@ -1,4 +1,4 @@
-import {
+﻿import {
   getStatus,
   getHealth,
   getDiagnostics,
@@ -7,6 +7,11 @@ import {
   stopScheduler,
   getMaxConcurrentSetting,
   updateMaxConcurrent,
+  getHolidayCalendarSetting,
+  changeHolidayCalendar,
+  getTimezoneSetting,
+  updateTimezone,
+  backupNow,
 } from "./api.js";
 
 const $ = (id) => document.getElementById(id);
@@ -24,6 +29,110 @@ const maxConcurrentSource = $("max-concurrent-source");
 
 let refreshInFlight = false;
 let maxConcurrentDirty = false;
+let dashboardTimeZone = null;
+
+function showCalendarSetting(setting) {
+  $("holiday-calendar-url").value = setting.url;
+  $("holiday-setting-status").textContent = setting.enabled
+    ? `Tersimpan: ${setting.year}, ${setting.count} tanggal (termasuk cuti bersama).`
+    : "Menggunakan provider dari .env.";
+}
+
+function showTimezoneSetting(setting) {
+  $("timezone-input").value = setting.value;
+  $("timezone-setting-status").textContent = setting.restartRequired
+    ? `Menunggu restart aplikasi: ${setting.value}. Aktif: ${setting.active}.`
+    : `Aktif: ${setting.active}`;
+}
+
+async function calendarAction(method) {
+  const buttons = [
+    $("test-holiday-calendar"),
+    $("save-holiday-calendar"),
+    $("reset-holiday-calendar"),
+  ];
+  if (buttons.some((button) => button.disabled)) return;
+  if (method !== "DELETE" && !$("holiday-calendar-url").reportValidity())
+    return;
+  if (
+    method === "DELETE" &&
+    !window.confirm(
+      "Hapus kalender tersimpan dan kembali ke provider .env? Jadwal yang sudah ada tidak berubah.",
+    )
+  )
+    return;
+  buttons.forEach((button) => {
+    button.disabled = true;
+  });
+  $("holiday-setting-status").textContent = "Memeriksa...";
+  try {
+    const result = await changeHolidayCalendar(
+      method,
+      $("holiday-calendar-url").value,
+    );
+    if (method === "POST") {
+      $("holiday-setting-status").textContent =
+        `Valid: ${result.year}, ${result.count} tanggal. ${result.preview.map((item) => `${item.date}: ${item.name}`).join("; ")}`;
+    } else {
+      showCalendarSetting(result);
+    }
+  } catch (error) {
+    $("holiday-setting-status").textContent = readableError(error);
+  } finally {
+    buttons.forEach((button) => {
+      button.disabled = false;
+    });
+  }
+}
+
+function readableError(error) {
+  try {
+    return JSON.parse(error.message).error || error.message;
+  } catch {
+    return error.message;
+  }
+}
+
+$("holiday-settings-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  calendarAction("PUT");
+});
+$("test-holiday-calendar").addEventListener("click", () =>
+  calendarAction("POST"),
+);
+$("reset-holiday-calendar").addEventListener("click", () =>
+  calendarAction("DELETE"),
+);
+$("timezone-settings-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("save-timezone");
+  if (
+    button.disabled ||
+    !window.confirm(
+      "Simpan timezone untuk restart berikutnya? Jadwal dan log lama tidak akan dikonversi.",
+    )
+  )
+    return;
+  button.disabled = true;
+  try {
+    showTimezoneSetting(await updateTimezone($("timezone-input").value));
+  } catch (error) {
+    $("timezone-setting-status").textContent = readableError(error);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+getHolidayCalendarSetting()
+  .then(showCalendarSetting)
+  .catch((error) => {
+    $("holiday-setting-status").textContent = readableError(error);
+  });
+getTimezoneSetting()
+  .then(showTimezoneSetting)
+  .catch((error) => {
+    $("timezone-setting-status").textContent = readableError(error);
+  });
 
 function setLoading(button, loading, label) {
   button.disabled = loading;
@@ -55,9 +164,10 @@ function formatDuration(seconds = 0) {
 function formatDateTime(value) {
   if (!value) return "-";
 
-  const normalized = typeof value === "string" && !/[zZ]|[+-]\d\d:?\d\d$/.test(value)
-    ? value.replace(" ", "T") + "+07:00"
-    : value;
+  const normalized =
+    typeof value === "string" && !/[zZ]|[+-]\d\d:?\d\d$/.test(value)
+      ? value.replace(" ", "T") + "+07:00"
+      : value;
 
   const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) return String(value);
@@ -71,12 +181,17 @@ function formatDateTime(value) {
 
 function formatTimeOnly(value) {
   if (!value) return "-";
-  const normalized = typeof value === "string" && !/[zZ]|[+-]\d\d:?\d\d$/.test(value)
-    ? value.replace(" ", "T") + "+07:00"
-    : value;
+  const normalized =
+    typeof value === "string" && !/[zZ]|[+-]\d\d:?\d\d$/.test(value)
+      ? value.replace(" ", "T") + "+07:00"
+      : value;
   const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString("id-ID", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function formatMb(value) {
@@ -94,7 +209,8 @@ function statusClass(status) {
   const value = String(status || "").toUpperCase();
   if (value === "HEALTHY" || value === "RUNNING") return "status-healthy";
   if (value === "DEGRADED" || value === "DRAINING") return "status-degraded";
-  if (value === "UNHEALTHY" || value === "FAILED" || value === "STOPPED") return "status-unhealthy";
+  if (value === "UNHEALTHY" || value === "FAILED" || value === "STOPPED")
+    return "status-unhealthy";
   return "status-neutral";
 }
 
@@ -103,15 +219,20 @@ function setMiniStatus(element, status, label = status) {
   element.className = `mini-status ${statusClass(status)}`;
 }
 
-
 function renderScheduler(status, health) {
   const running = Boolean(status.running);
   const schedulerCheck = health.checks?.scheduler ?? {};
 
   setMiniStatus(schedulerStatus, running ? "RUNNING" : "STOPPED");
-  schedulerDetail.textContent = running ? `${status.totalJobs ?? 0} job aktif` : "Scheduler berhenti";
-  $("generator-status").textContent = schedulerCheck.generator?.running ? "Running" : "Stopped";
-  $("scheduler-last-tick").textContent = formatDateTime(schedulerCheck.lastTickAt);
+  schedulerDetail.textContent = running
+    ? `${status.totalJobs ?? 0} job aktif`
+    : "Scheduler berhenti";
+  $("generator-status").textContent = schedulerCheck.generator?.running
+    ? "Running"
+    : "Stopped";
+  $("scheduler-last-tick").textContent = formatDateTime(
+    schedulerCheck.lastTickAt,
+  );
   $("uptime-status").textContent = formatDuration(health.uptimeSeconds);
 
   startBtn.hidden = running;
@@ -141,7 +262,8 @@ function renderLifecycle(health, diagnostics) {
 
   const drain = diagnostics.drain ?? {};
   $("lifecycle-title").textContent = "Full-drain shutdown sedang berlangsung";
-  $("lifecycle-detail").textContent = "Sistem akan mati setelah seluruh queue, retry, dan browser context benar-benar kosong.";
+  $("lifecycle-detail").textContent =
+    "Sistem akan mati setelah seluruh queue, retry, dan browser context benar-benar kosong.";
   $("drain-running").textContent = drain.queue?.running ?? 0;
   $("drain-pending").textContent = drain.queue?.pending ?? 0;
   $("drain-retry").textContent = drain.database?.retryPending ?? 0;
@@ -155,9 +277,10 @@ function renderMaxConcurrentSetting(setting) {
     maxConcurrentInput.value = String(setting.value);
   }
 
-  const sourceLabel = setting.source === "runtime"
-    ? "Runtime setting tersimpan"
-    : `Default .env (${setting.envDefault ?? setting.value})`;
+  const sourceLabel =
+    setting.source === "runtime"
+      ? "Runtime setting tersimpan"
+      : `Default .env (${setting.envDefault ?? setting.value})`;
 
   maxConcurrentSource.textContent = sourceLabel;
 }
@@ -168,11 +291,19 @@ function renderExecution(health) {
 
   $("queue-running").textContent = queue.running ?? 0;
   $("queue-pending").textContent = queue.pending ?? 0;
-  $("queue-capacity").textContent = `${queue.running ?? 0}/${queue.maxConcurrent ?? 0}`;
-  $("browser-status").textContent = browser.connected ? "Connected" : "Idle / Closed";
+  $("queue-capacity").textContent =
+    `${queue.running ?? 0}/${queue.maxConcurrent ?? 0}`;
+  $("browser-status").textContent = browser.connected
+    ? "Connected"
+    : "Idle / Closed";
   $("browser-contexts").textContent = browser.activeContexts ?? 0;
   $("browser-pages").textContent = browser.pageCount ?? 0;
-  setMiniStatus($("execution-health"), queue.status === "DEGRADED" || browser.status === "DEGRADED" ? "DEGRADED" : "HEALTHY");
+  setMiniStatus(
+    $("execution-health"),
+    queue.status === "DEGRADED" || browser.status === "DEGRADED"
+      ? "DEGRADED"
+      : "HEALTHY",
+  );
 }
 
 function renderBackup(health) {
@@ -181,7 +312,11 @@ function renderBackup(health) {
   $("backup-last").textContent = formatDateTime(backup.lastSuccessAt);
   $("backup-duration").textContent = formatMs(backup.lastDurationMs);
   $("backup-retention").textContent = `${backup.retentionCount ?? "-"} backup`;
-  $("backup-running").textContent = backup.backupRunning ? "Backup berjalan" : backup.enabled ? "Terjadwal" : "Disabled";
+  $("backup-running").textContent = backup.backupRunning
+    ? "Backup berjalan"
+    : backup.enabled
+      ? "Terjadwal"
+      : "Disabled";
 }
 
 function renderHoliday(health) {
@@ -191,44 +326,70 @@ function renderHoliday(health) {
   setMiniStatus($("holiday-health"), holiday.status);
   $("holiday-source").textContent = holiday.source ?? "Belum ada";
   $("holiday-available").textContent = hasHolidayCheck
-    ? holiday.available ? "Ya" : "Tidak"
+    ? holiday.available
+      ? "Ya"
+      : "Tidak"
     : "Belum dicek";
 
   if (!hasHolidayCheck) {
     $("holiday-status").textContent = "Belum dicek";
-    $("holiday-name").textContent = holiday.note ?? "Belum ada hasil holiday check pada generator terakhir";
+    $("holiday-name").textContent =
+      holiday.note ?? "Belum ada hasil holiday check pada generator terakhir";
     return;
   }
 
-  $("holiday-status").textContent = holiday.isHoliday === true
-    ? "Libur"
-    : holiday.isHoliday === false
-      ? "Hari kerja"
-      : "Tidak diketahui";
+  $("holiday-status").textContent =
+    holiday.isHoliday === true
+      ? "Hari Libur"
+      : holiday.isHoliday === false
+        ? "Hari kerja"
+        : "Tidak diketahui";
   $("holiday-name").textContent = holiday.name ?? holiday.note ?? "-";
 }
 
 function renderCore(health) {
   const checks = health.checks ?? {};
-  const coreStatuses = [checks.database?.status, checks.credentialVault?.status, checks.logging?.status];
-  const worst = coreStatuses.includes("UNHEALTHY") ? "UNHEALTHY" : coreStatuses.includes("DEGRADED") ? "DEGRADED" : "HEALTHY";
+  const coreStatuses = [
+    checks.database?.status,
+    checks.credentialVault?.status,
+    checks.logging?.status,
+  ];
+  const worst = coreStatuses.includes("UNHEALTHY")
+    ? "UNHEALTHY"
+    : coreStatuses.includes("DEGRADED")
+      ? "DEGRADED"
+      : "HEALTHY";
 
   setMiniStatus($("core-health"), worst);
-  $("database-status").textContent = `${checks.database?.status ?? "-"} · ${checks.database?.latencyMs ?? "-"} ms`;
-  $("vault-status").textContent = checks.credentialVault?.keyAvailable ? "Ready" : "Missing";
-  $("logging-status").textContent = checks.logging?.writable ? "Writable" : "Read only";
-  $("memory-status").textContent = checks.memory ? `${checks.memory.systemUsedPercent}% · RSS ${checks.memory.rssMb} MB` : "-";
-  $("disk-status").textContent = checks.disk?.available ? formatMb(checks.disk.freeMb) : "Unavailable";
+  $("database-status").textContent =
+    `${checks.database?.status ?? "-"} · ${checks.database?.latencyMs ?? "-"} ms`;
+  $("vault-status").textContent = checks.credentialVault?.keyAvailable
+    ? "Ready"
+    : "Missing";
+  $("logging-status").textContent = checks.logging?.writable
+    ? "Writable"
+    : "Read only";
+  $("memory-status").textContent = checks.memory
+    ? `${checks.memory.systemUsedPercent}% · RSS ${checks.memory.rssMb} MB`
+    : "-";
+  $("disk-status").textContent = checks.disk?.available
+    ? formatMb(checks.disk.freeMb)
+    : "Unavailable";
   $("timezone-status").textContent = health.timezone ?? "-";
 }
 
 function renderAutomation(health) {
   const automation = health.checks?.automation ?? {};
   $("last-success-type").textContent = automation.lastSuccessType ?? "-";
-  $("last-success-at").textContent = automation.lastSuccessAt ? formatDateTime(automation.lastSuccessAt) : "Belum ada data";
+  $("last-success-at").textContent = automation.lastSuccessAt
+    ? formatDateTime(automation.lastSuccessAt)
+    : "Belum ada data";
   $("last-failure-type").textContent = automation.lastFailureType ?? "-";
-  $("last-failure-at").textContent = automation.lastFailureAt ? formatDateTime(automation.lastFailureAt) : "Belum ada data";
-  $("recent-failures").textContent = automation.recentFailuresLast60Minutes ?? 0;
+  $("last-failure-at").textContent = automation.lastFailureAt
+    ? formatDateTime(automation.lastFailureAt)
+    : "Belum ada data";
+  $("recent-failures").textContent =
+    automation.recentFailuresLast60Minutes ?? 0;
 }
 
 function renderAudit(logs = []) {
@@ -264,13 +425,47 @@ function renderAudit(logs = []) {
 }
 
 function updateClock() {
-  $("current-time").textContent = new Date().toLocaleTimeString("id-ID", {
-    timeZone: "Asia/Jakarta",
+  if (!dashboardTimeZone) return;
+  const now = new Date();
+  $("current-date").textContent = now.toLocaleDateString("id-ID", {
+    timeZone: dashboardTimeZone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const labels = {
+    "Asia/Jakarta": "WIB",
+    "Asia/Pontianak": "WIB",
+    "Asia/Makassar": "WITA",
+    "Asia/Ujung_Pandang": "WITA",
+    "Asia/Jayapura": "WIT",
+  };
+  $("current-timezone").textContent =
+    labels[dashboardTimeZone] ?? dashboardTimeZone;
+  $("current-time").textContent = now.toLocaleTimeString("id-ID", {
+    timeZone: dashboardTimeZone,
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
   });
 }
+
+$("backup-now").addEventListener("click", async () => {
+  const button = $("backup-now");
+  if (button.disabled) return;
+  setLoading(button, true, "Backup Sekarang");
+  $("backup-now-status").textContent = "Membuat backup...";
+  try {
+    await backupNow();
+    $("backup-now-status").textContent = "Backup berhasil.";
+    await refreshDashboard();
+  } catch (error) {
+    $("backup-now-status").textContent = readableError(error);
+  } finally {
+    setLoading(button, false, "Backup Sekarang");
+  }
+});
 
 async function refreshDashboard({ includeAudit = false } = {}) {
   if (refreshInFlight) return;
@@ -279,11 +474,22 @@ async function refreshDashboard({ includeAudit = false } = {}) {
   $("refresh-status").textContent = "Memperbarui...";
 
   try {
-    const requests = [getStatus(), getHealth(), getDiagnostics(), getMaxConcurrentSetting()];
+    const requests = [
+      getStatus(),
+      getHealth(),
+      getDiagnostics(),
+      getMaxConcurrentSetting(),
+    ];
     if (includeAudit) requests.push(getAuditLogs());
 
-    const [status, health, diagnostics, maxConcurrentSetting, auditLogs] = await Promise.all(requests);
+    const [status, health, diagnostics, maxConcurrentSetting, auditLogs] =
+      await Promise.all(requests);
 
+    if (health.timezone) {
+      new Intl.DateTimeFormat("id-ID", { timeZone: health.timezone });
+      dashboardTimeZone = health.timezone;
+      updateClock();
+    }
     renderScheduler(status, health);
     renderToday(diagnostics);
     renderLifecycle(health, diagnostics);
@@ -295,7 +501,9 @@ async function refreshDashboard({ includeAudit = false } = {}) {
     renderAutomation(health);
     if (includeAudit) renderAudit(auditLogs);
 
-    $("refresh-status").textContent = `Terakhir diperbarui ${new Date().toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+    $("refresh-status").textContent = dashboardTimeZone
+      ? `Terakhir diperbarui ${new Date().toLocaleTimeString("id-ID", { timeZone: dashboardTimeZone, hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+      : "Terakhir diperbarui; timezone belum tersedia";
   } catch (err) {
     console.error(err);
     showMessage(err.message || "Gagal memuat dashboard", "error");
@@ -336,7 +544,9 @@ stopBtn.addEventListener("click", async () => {
   }
 });
 
-refreshBtn.addEventListener("click", () => refreshDashboard({ includeAudit: true }));
+refreshBtn.addEventListener("click", () =>
+  refreshDashboard({ includeAudit: true }),
+);
 refreshAuditBtn.addEventListener("click", async () => {
   try {
     refreshAuditBtn.disabled = true;
@@ -347,7 +557,6 @@ refreshAuditBtn.addEventListener("click", async () => {
     refreshAuditBtn.disabled = false;
   }
 });
-
 
 maxConcurrentInput?.addEventListener("change", () => {
   maxConcurrentDirty = true;

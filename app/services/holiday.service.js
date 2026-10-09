@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import { dirname } from "path";
 
 import { holidayConfig } from "../config/holiday.config.js";
+import { checkSavedHolidayCalendar } from "./holiday-calendar.service.js";
 
 const CACHE_VERSION = 1;
 
@@ -183,6 +184,13 @@ async function readManualOverride(date) {
 
 async function checkNationalHoliday(date) {
   const errors = [];
+
+  try {
+    const saved = checkSavedHolidayCalendar(date);
+    if (saved) return saved;
+  } catch {
+    console.log("[HOLIDAY] Kalender tersimpan tidak dapat dibaca; menggunakan provider fallback.");
+  }
 
   try {
     const primary = await checkPrimaryProvider(date);

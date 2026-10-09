@@ -1,4 +1,4 @@
-import { getUsers, createUser, deleteUser } from "./api.js";
+import { getUsers, createUser, deleteUser, updateUser } from "./api.js";
 
 const PAGE_SIZE = 10;
 
@@ -16,6 +16,7 @@ const pageInfo = document.getElementById("users-page-info");
 
 let usersData = [];
 let currentPage = 1;
+let editingId = null;
 
 function setMessage(message, type = "info") {
   formMessage.textContent = message;
@@ -31,7 +32,23 @@ function resetForm() {
   form.reset();
 }
 
-function openUserModal() {
+function openUserModal(user = null) {
+  editingId = user?.id ?? null;
+  resetForm();
+  document.getElementById("user-modal-title").textContent = editingId ? "Edit User" : "Tambah User";
+  for (const key of ["username", "password"]) {
+    document.getElementById(key).required = !editingId;
+    document.getElementById(`${key}-required`).hidden = Boolean(editingId);
+    document.getElementById(`${key}-hint`).textContent = editingId ? "Kosongkan untuk mempertahankan" : "Akun Pusaka";
+  }
+  document.getElementById("username").placeholder = user?.usernameMasked ?? "";
+  if (user) {
+    document.getElementById("nickname").value = user.nickname ?? "";
+    document.getElementById("lat").value = user.latitude;
+    document.getElementById("lng").value = user.longitude;
+    document.getElementById("service-plan").value = user.service_days_total === null ? "unlimited" : String(user.service_days_total);
+  }
+  setLoading(false);
   clearMessage();
   userModal.showModal();
   document.getElementById("nickname").focus();
@@ -45,7 +62,7 @@ function closeUserModal() {
 
 function setLoading(loading) {
   submitButton.disabled = loading;
-  submitButton.textContent = loading ? "Menyimpan..." : "Tambah";
+  submitButton.textContent = loading ? "Menyimpan..." : editingId ? "Simpan" : "Tambah";
 }
 
 function appendCell(row, value, className = "") {
@@ -61,7 +78,7 @@ function createEmptyRow(message, className = "row-empty") {
   row.className = className;
 
   const cell = document.createElement("td");
-  cell.colSpan = 3;
+  cell.colSpan = 7;
   cell.textContent = message;
   row.appendChild(cell);
 
@@ -84,8 +101,17 @@ function createUserRow(user) {
 
   nicknameCell.append(nickname, autoLogin);
   row.appendChild(nicknameCell);
+  appendCell(row, user.service_days_total === null ? "Tak Terbatas" : `${user.service_days_total} Hari`);
+  appendCell(row, user.service_days_used);
+  appendCell(row, user.service_days_remaining === null ? "Tak Terbatas" : user.service_days_remaining);
+  appendCell(row, user.service_status === "completed" ? "Habis" : "Aktif");
 
   const actionCell = document.createElement("td");
+  const editButton = document.createElement("button");
+  editButton.className = "btn secondary";
+  editButton.type = "button";
+  editButton.textContent = "Edit";
+  editButton.addEventListener("click", () => openUserModal(user));
   const deleteButton = document.createElement("button");
   deleteButton.className = "btn danger";
   deleteButton.type = "button";
@@ -108,7 +134,10 @@ function createUserRow(user) {
     }
   });
 
-  actionCell.appendChild(deleteButton);
+  const actions = document.createElement("div");
+  actions.className = "setting-actions";
+  actions.append(editButton, deleteButton);
+  actionCell.append(actions);
   row.appendChild(actionCell);
 
   return row;
@@ -148,6 +177,7 @@ function getFormData() {
     password: document.getElementById("password").value,
     latitude: document.getElementById("lat").value.trim(),
     longitude: document.getElementById("lng").value.trim(),
+    service_days_total: document.getElementById("service-plan").value === "unlimited" ? null : Number(document.getElementById("service-plan").value),
   };
 }
 
@@ -185,7 +215,7 @@ nextButton.addEventListener("click", () => {
   renderUsers();
 });
 
-openUserModalButton.addEventListener("click", openUserModal);
+openUserModalButton.addEventListener("click", () => openUserModal());
 closeUserModalButton.addEventListener("click", closeUserModal);
 
 userModal.addEventListener("click", (event) => {
@@ -203,12 +233,13 @@ form.addEventListener("submit", async (event) => {
     validateCoordinates(data);
     setLoading(true);
 
-    await createUser(data);
+    if (editingId) await updateUser(editingId, data);
+    else await createUser(data);
     resetForm();
     currentPage = 1;
 
     await loadUsers();
-    setMessage("User ditambahkan.");
+    setMessage("User tersimpan.");
     closeUserModal();
   } catch (err) {
     console.error(err);

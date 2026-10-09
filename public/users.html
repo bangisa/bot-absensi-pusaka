@@ -26,11 +26,13 @@
 
       <main>
         <section class="page-header">
-          <div>
+          <div class="users-heading">
             <h1>Users</h1>
             <p id="users-summary" class="muted">Memuat...</p>
           </div>
-          <button id="open-user-modal" class="btn primary" type="button">Tambah User</button>
+          <button id="open-user-modal" class="btn primary" type="button">
+            Tambah User
+          </button>
         </section>
 
         <section class="panel table-panel">
@@ -40,6 +42,10 @@
                 <tr>
                   <th>ID</th>
                   <th>Nickname</th>
+                  <th>Paket</th>
+                  <th>Terpakai</th>
+                  <th>Sisa</th>
+                  <th>Status</th>
                   <th>Aksi</th>
                 </tr>
               </thead>
@@ -47,9 +53,13 @@
             </table>
           </div>
           <div class="pagination" aria-label="Paginasi users">
-            <button id="users-prev" class="btn secondary" type="button">Prev</button>
+            <button id="users-prev" class="btn secondary" type="button">
+              Prev
+            </button>
             <span id="users-page-info">-</span>
-            <button id="users-next" class="btn secondary" type="button">Next</button>
+            <button id="users-next" class="btn secondary" type="button">
+              Next
+            </button>
           </div>
         </section>
       </main>
@@ -58,20 +68,51 @@
     <dialog id="user-modal" class="modal">
       <form method="post" id="user-form" class="user-form modal-content">
         <div class="modal-header">
-          <h2>Tambah User</h2>
-          <button id="close-user-modal" class="modal-close-icon" type="button" aria-label="Tutup modal" title="Tutup">❌</button>
+          <h2 id="user-modal-title">Tambah User</h2>
+          <button
+            id="close-user-modal"
+            class="modal-close-icon"
+            type="button"
+            aria-label="Tutup modal"
+            title="Tutup"
+          >
+            ❌
+          </button>
         </div>
         <label>
-          <span>Nickname <small class="field-hint">(Nama Samaran)</small> <span class="required-mark">*</span></span>
+          <span>Nickname <span class="required-mark">*</span></span>
           <input type="text" id="nickname" autocomplete="nickname" required />
         </label>
         <label>
-          <span>Username <small class="field-hint">Akun Pusaka</small> <span class="required-mark">*</span></span>
+          <span>Paket Service <span class="required-mark">*</span></span>
+          <select id="service-plan" required>
+            <option value="1">1 Hari</option>
+            <option value="7">7 Hari</option>
+            <option value="30">30 Hari</option>
+            <option value="90">90 Hari</option>
+            <option value="unlimited" selected>Tak Terbatas</option>
+          </select>
+        </label>
+        <label>
+          <span>
+            Username
+            <span class="required-mark" id="username-required">*</span>
+            <small class="field-hint" id="username-hint">Akun Pusaka</small>
+          </span>
           <input type="text" id="username" autocomplete="username" required />
         </label>
         <label>
-          <span>Password <small class="field-hint">Akun Pusaka</small> <span class="required-mark">*</span></span>
-          <input type="password" id="password" autocomplete="new-password" required />
+          <span
+            >Password
+            <span class="required-mark" id="password-required">*</span>
+            <small class="field-hint" id="password-hint">Akun Pusaka</small>
+          </span>
+          <input
+            type="password"
+            id="password"
+            autocomplete="new-password"
+            required
+          />
         </label>
         <label>
           <span>Latitude <span class="required-mark">*</span></span>
@@ -89,6 +130,6 @@
     </dialog>
 
     <script type="module" src="/js/users.js"></script>
-      <script type="module" src="/js/auth-ui.js"></script>
+    <script type="module" src="/js/auth-ui.js"></script>
   </body>
 </html>

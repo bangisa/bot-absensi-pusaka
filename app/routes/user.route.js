@@ -7,7 +7,8 @@ import controller from "../controllers/user.controller.js";
 // - create user
 // - list users
 // - delete user
-// Editing and bulk creation are deliberately not exposed.
+// Editing uses PATCH; bulk creation remains unavailable.
+router.patch("/:id", controller.update);
 router.post("/", controller.create);
 router.get("/", controller.findAll);
 router.delete("/:id", controller.remove);

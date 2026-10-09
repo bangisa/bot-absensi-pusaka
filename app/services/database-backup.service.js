@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { schedule } from "node-cron";
 
 import db from "../../database/db.js";
@@ -32,7 +33,7 @@ function backupTimestamp(date = new Date()) {
 function listBackupFiles(directory) {
   return fs
     .readdirSync(directory, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && /^db-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.sqlite$/.test(entry.name))
+    .filter((entry) => entry.isFile() && /^db-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:-[a-f0-9-]{36})?\.sqlite$/.test(entry.name))
     .map((entry) => {
       const fullPath = path.join(directory, entry.name);
       const stat = fs.statSync(fullPath);
@@ -73,16 +74,12 @@ async function executeBackup(trigger = "scheduled") {
   const started = Date.now();
 
   currentBackupPromise = (async () => {
-    const directory = ensureBackupDirectory();
-    const filename = `db-${backupTimestamp()}.sqlite`;
-    const destination = path.join(directory, filename);
-
-    logger.info("database.backup_started", "Weekly database backup dimulai", {
-      trigger,
-      destination: path.relative(process.cwd(), destination),
-    });
+    let destination;
 
     try {
+      const directory = ensureBackupDirectory();
+      destination = path.join(directory, `db-${backupTimestamp()}-${randomUUID()}.sqlite`);
+      logger.info("database.backup_started", "Database backup dimulai", { trigger });
       // better-sqlite3 online backup API membuat snapshot SQLite yang konsisten
       // tanpa harus menutup koneksi database utama.
       await db.backup(destination);
@@ -119,7 +116,7 @@ async function executeBackup(trigger = "scheduled") {
       lastDurationMs = Date.now() - started;
 
       try {
-        if (fs.existsSync(destination)) fs.unlinkSync(destination);
+        if (destination && fs.existsSync(destination)) fs.unlinkSync(destination);
       } catch {
         // Ignore cleanup error; original backup error is more useful.
       }
