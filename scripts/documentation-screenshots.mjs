@@ -31,7 +31,7 @@ const fixtures = {
       credentialVault: { status: 'HEALTHY', keyAvailable: true },
       logging: { status: 'HEALTHY', writable: true },
       memory: { systemUsedPercent: 24, rssMb: 80 }, disk: { available: true, freeMb: 12000 },
-      automation: { lastSuccessType: 'masuk', lastSuccessNickname: 'Demo A', lastSuccessAt: timestamp, recentFailuresLast24Hours: 0 },
+      automation: { lastSuccessType: 'masuk', lastSuccessNickname: 'Demo A', lastSuccessAt: timestamp, failuresToday: 0 },
     },
   },
   '/api/system/diagnostics': { dailySchedules: { success: 3, pending: 3, processing: 0, failed: 0, skipped: 0, retry: { waiting: 0 } } },

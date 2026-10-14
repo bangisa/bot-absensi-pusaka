@@ -393,7 +393,7 @@ function renderAutomation(health) {
     ? formatDateTime(automation.lastFailureAt)
     : "Belum ada data";
   $("recent-failures").textContent =
-    automation.recentFailuresLast24Hours ?? 0;
+    automation.failuresToday ?? 0;
 }
 
 function renderAudit(logs = []) {

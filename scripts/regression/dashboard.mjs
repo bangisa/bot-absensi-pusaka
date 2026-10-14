@@ -90,13 +90,13 @@ try {
     const response=await page.evaluate(async()=>{const r=await fetch('/dashboard');return new URL(r.url).pathname;});
     assert.equal(response,'/dashboard.html');
   });
-  await test('AUTOMATION-nickname-and-24-hours',async()=>{
+  await test('AUTOMATION-nickname-and-today',async()=>{
     const {default:Database}=await import('better-sqlite3');
     const db=new Database(':memory:');
     try {
       db.exec('CREATE TABLE users (id INTEGER, nickname TEXT); CREATE TABLE logs (id INTEGER PRIMARY KEY, user_id INTEGER, nickname TEXT, type TEXT, status TEXT, created_at TEXT)');
       db.prepare('INSERT INTO users VALUES (?,?)').run(1,'Current nickname');
-      const now=Date.parse('2026-10-14T01:00:00Z');
+      let now=Date.parse('2026-10-14T01:00:00Z');
       const zoned=d=>new Date(d.getTime()+7*3600000).toISOString().slice(0,19).replace('T',' ');
       const insert=db.prepare('INSERT INTO logs (user_id,nickname,type,status,created_at) VALUES (?,?,?,?,?)');
       for(const hours of [0.5,2,23,25]) insert.run(1,null,'masuk','failed',zoned(new Date(now-hours*3600000)));
@@ -107,7 +107,7 @@ try {
       const result=new Function('db','getZonedDateTime','Date',fn+';return getAutomationDiagnostics();')(db,zoned,FixedDate);
       assert.equal(result.lastSuccessNickname,'Historical nickname');
       assert.equal(result.lastFailureNickname,'Current nickname');
-      assert.equal(result.recentFailuresLast24Hours,3);
+      assert.equal(result.failuresToday,2);
       assert.equal(result.recentFailuresLast60Minutes,1);
       assert.equal(result.status,'HEALTHY');
       const js=fs.readFileSync(path.join(root,'public/js/dashboard.js'),'utf8');
@@ -115,8 +115,21 @@ try {
       await page.evaluate((render,result)=>new Function('$','formatDateTime',render+';renderAutomation({checks:{automation:arguments[2]}});')(id=>document.getElementById(id),v=>v,result),render,result);
       assert.equal(await page.$eval('#last-success-type',e=>e.textContent),'pulang - Historical nickname');
       assert.equal(await page.$eval('#last-failure-type',e=>e.textContent),'masuk - Current nickname');
-      assert.equal(await page.$eval('#recent-failures',e=>e.textContent),'3');
-      assert.match(await page.content(),/Failure 24 jam terakhir/);
+      assert.equal(await page.$eval('#recent-failures',e=>e.textContent),'2');
+      assert.match(await page.content(),/Failure hari ini/);
+      db.exec('DELETE FROM logs');
+      now=Date.parse('2026-10-14T17:15:00Z'); // 00:15 on October 15 in Jakarta.
+      insert.run(1,null,'masuk','failed','2026-10-14 23:59:59');
+      insert.run(1,null,'masuk','failed','2026-10-15 00:00:00');
+      insert.run(1,null,'masuk','success','2026-10-15 00:01:00');
+      insert.run(1,null,'masuk','skipped','2026-10-15 00:02:00');
+      insert.run(1,null,'masuk','failed','2026-10-15 01:00:00');
+      const boundary=new Function('db','getZonedDateTime','Date',fn+';return getAutomationDiagnostics();')(db,zoned,FixedDate);
+      assert.equal(boundary.failuresToday,1);
+      assert.equal(boundary.recentFailuresLast60Minutes,2);
+      db.exec('DELETE FROM logs');
+      const empty=new Function('db','getZonedDateTime','Date',fn+';return getAutomationDiagnostics();')(db,zoned,FixedDate);
+      assert.equal(empty.failuresToday,0);
     } finally {db.close();}
   });
   await test('TABLE-shared-pagination-and-empty-state',async()=>{

@@ -200,16 +200,15 @@ function getAutomationDiagnostics() {
 
   const now = Date.now();
   const oneHourAgo = getZonedDateTime(new Date(now - 60 * 60 * 1000));
-  const oneDayAgo = getZonedDateTime(new Date(now - 24 * 60 * 60 * 1000));
+  const zonedNow = getZonedDateTime(new Date(now));
+  const todayStart = `${zonedNow.slice(0, 10)} 00:00:00`;
   const recentFailureRow = db.prepare(`
-    SELECT COUNT(1) AS total,
+    SELECT SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS today,
       SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS last_hour
     FROM logs
     WHERE status = 'failed'
       AND created_at >= ? AND created_at <= ?
-  `).get(oneHourAgo, oneDayAgo, getZonedDateTime(new Date(now)));
-
-  const recentFailures = recentFailureRow?.total ?? 0;
+  `).get(todayStart, oneHourAgo, oneHourAgo < todayStart ? oneHourAgo : todayStart, zonedNow);
 
   return {
     status: (recentFailureRow?.last_hour ?? 0) >= 3 ? "DEGRADED" : "HEALTHY",
@@ -220,7 +219,7 @@ function getAutomationDiagnostics() {
     lastFailureType: lastFailure?.type ?? null,
     lastFailureNickname: lastFailure?.nickname ?? null,
     recentFailuresLast60Minutes: recentFailureRow?.last_hour ?? 0,
-    recentFailuresLast24Hours: recentFailures,
+    failuresToday: recentFailureRow?.today ?? 0,
   };
 }
 
