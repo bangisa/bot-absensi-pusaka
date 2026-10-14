@@ -30,6 +30,74 @@ select {
   font: inherit;
 }
 
+.entry-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  color-scheme: dark;
+}
+
+.entry-shell {
+  width: min(100%, 360px);
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.entry-shell h1 {
+  font-size: 22px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.entry-status {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.entry-progress {
+  width: 120px;
+  height: 3px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--border);
+}
+
+.entry-progress::after {
+  content: "";
+  display: block;
+  width: 45%;
+  height: 100%;
+  background: var(--blue);
+  animation: entry-progress 1.2s ease-in-out infinite;
+}
+
+.entry-link {
+  padding: 8px;
+  color: #60a5fa;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.entry-link:hover {
+  text-decoration: underline;
+}
+
+@keyframes entry-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(325%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entry-progress::after {
+    animation: none;
+    width: 100%;
+  }
+}
+
 .container {
   width: min(1100px, calc(100% - 32px));
   margin: 0 auto;
