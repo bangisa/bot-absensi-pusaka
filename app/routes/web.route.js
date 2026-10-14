@@ -23,4 +23,8 @@ router.get("/", (req, res) => {
   res.sendFile(path.resolve("../../public", "index.html"));
 });
 
+router.get("/dashboard", (req, res) => {
+  res.redirect("/dashboard.html");
+});
+
 export default router;

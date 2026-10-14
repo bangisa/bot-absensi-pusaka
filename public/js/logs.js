@@ -1,6 +1,5 @@
 import { getLogs } from "./api.js";
-
-const PAGE_SIZE = 10;
+import { paginate, updatePagination, createEmptyRow } from "./table-ui.js";
 
 const logsContainer = document.getElementById("logs");
 const logsSummary = document.getElementById("logs-summary");
@@ -44,18 +43,6 @@ function createBadge(value, className) {
   badge.className = `badge ${className}`;
   badge.textContent = value ?? "-";
   return badge;
-}
-
-function createEmptyRow(message, className = "row-empty") {
-  const row = document.createElement("tr");
-  row.className = className;
-
-  const cell = document.createElement("td");
-  cell.colSpan = 5;
-  cell.textContent = message;
-  row.appendChild(cell);
-
-  return row;
 }
 
 function formatLogDate(value) {
@@ -105,28 +92,22 @@ function getFilteredLogs() {
 
 function renderLogs(resetPage = false) {
   const logs = getFilteredLogs();
-  const totalPages = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
-
   if (resetPage) currentPage = 1;
-  currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  const pagination = paginate(logs, currentPage);
+  currentPage = pagination.currentPage;
 
   logsContainer.replaceChildren();
   logsSummary.textContent = `${logs.length}/${allLogs.length} log`;
 
   if (!logs.length) {
-    logsContainer.appendChild(createEmptyRow("Tidak ada log."));
+    logsContainer.appendChild(createEmptyRow("Tidak ada log.", 5));
   } else {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const pageItems = logs.slice(start, start + PAGE_SIZE);
-
-    pageItems.forEach((log) => {
+    pagination.items.forEach((log) => {
       logsContainer.appendChild(createLogRow(log));
     });
   }
 
-  pageInfo.textContent = `Hal ${currentPage}/${totalPages}`;
-  prevButton.disabled = currentPage <= 1;
-  nextButton.disabled = currentPage >= totalPages;
+  updatePagination(pagination, pageInfo, prevButton, nextButton);
 }
 
 async function loadLogs() {
@@ -140,7 +121,7 @@ async function loadLogs() {
   } catch (err) {
     console.error(err);
     logsSummary.textContent = "Gagal memuat";
-    logsContainer.replaceChildren(createEmptyRow(err.message || "Gagal memuat log.", "row-error"));
+    logsContainer.replaceChildren(createEmptyRow(err.message || "Gagal memuat log.", 5, "row-error"));
   } finally {
     refreshButton.disabled = false;
     refreshButton.textContent = "Refresh";

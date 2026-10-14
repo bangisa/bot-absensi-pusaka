@@ -1,6 +1,5 @@
 import { getUsers, createUser, deleteUser, updateUser } from "./api.js";
-
-const PAGE_SIZE = 10;
+import { paginate, updatePagination, createEmptyRow } from "./table-ui.js";
 
 const usersList = document.getElementById("users-list");
 const usersSummary = document.getElementById("users-summary");
@@ -28,13 +27,9 @@ function clearMessage() {
   formMessage.textContent = "";
 }
 
-function resetForm() {
-  form.reset();
-}
-
 function openUserModal(user = null) {
   editingId = user?.id ?? null;
-  resetForm();
+  form.reset();
   document.getElementById("user-modal-title").textContent = editingId ? "Edit User" : "Tambah User";
   for (const key of ["username", "password"]) {
     document.getElementById(key).required = !editingId;
@@ -71,18 +66,6 @@ function appendCell(row, value, className = "") {
   cell.textContent = value ?? "-";
   row.appendChild(cell);
   return cell;
-}
-
-function createEmptyRow(message, className = "row-empty") {
-  const row = document.createElement("tr");
-  row.className = className;
-
-  const cell = document.createElement("td");
-  cell.colSpan = 7;
-  cell.textContent = message;
-  row.appendChild(cell);
-
-  return row;
 }
 
 function createUserRow(user) {
@@ -143,31 +126,22 @@ function createUserRow(user) {
   return row;
 }
 
-function getTotalPages() {
-  return Math.max(1, Math.ceil(usersData.length / PAGE_SIZE));
-}
-
 function renderUsers() {
-  const totalPages = getTotalPages();
-  currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  const pagination = paginate(usersData, currentPage);
+  currentPage = pagination.currentPage;
 
   usersList.replaceChildren();
   usersSummary.textContent = `${usersData.length} user`;
 
   if (!usersData.length) {
-    usersList.appendChild(createEmptyRow("Belum ada user."));
+    usersList.appendChild(createEmptyRow("Belum ada user.", 7));
   } else {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const pageItems = usersData.slice(start, start + PAGE_SIZE);
-
-    pageItems.forEach((user) => {
+    pagination.items.forEach((user) => {
       usersList.appendChild(createUserRow(user));
     });
   }
 
-  pageInfo.textContent = `Hal ${currentPage}/${totalPages}`;
-  prevButton.disabled = currentPage <= 1;
-  nextButton.disabled = currentPage >= totalPages;
+  updatePagination(pagination, pageInfo, prevButton, nextButton);
 }
 
 function getFormData() {
@@ -194,14 +168,14 @@ function validateCoordinates(data) {
 async function loadUsers() {
   try {
     usersSummary.textContent = "Memuat...";
-    usersList.replaceChildren(createEmptyRow("Memuat..."));
+    usersList.replaceChildren(createEmptyRow("Memuat...", 7));
 
     usersData = await getUsers();
     renderUsers();
   } catch (err) {
     console.error(err);
     usersSummary.textContent = "Gagal memuat";
-    usersList.replaceChildren(createEmptyRow(err.message || "Gagal memuat user.", "row-error"));
+    usersList.replaceChildren(createEmptyRow(err.message || "Gagal memuat user.", 7, "row-error"));
   }
 }
 
@@ -235,7 +209,7 @@ form.addEventListener("submit", async (event) => {
 
     if (editingId) await updateUser(editingId, data);
     else await createUser(data);
-    resetForm();
+    form.reset();
     currentPage = 1;
 
     await loadUsers();

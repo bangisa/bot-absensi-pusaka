@@ -11,7 +11,6 @@ export * from "./page.service.js";
 export * from "./presence.service.js";
 export * from "./queue.service.js";
 export * from "./scheduler.service.js";
-export * from "./user.service.js";
 export * from "./system-memory.service.js";
 
 

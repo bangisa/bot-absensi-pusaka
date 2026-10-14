@@ -181,38 +181,46 @@ function getScheduleDiagnostics(scheduleDate = getZonedDate()) {
 
 function getAutomationDiagnostics() {
   const lastSuccess = db.prepare(`
-    SELECT created_at, type, user_id
-    FROM logs
-    WHERE status = 'success'
-    ORDER BY created_at DESC
+    SELECT l.created_at, l.type,
+      COALESCE(NULLIF(l.nickname, ''), NULLIF(u.nickname, '')) AS nickname
+    FROM logs l LEFT JOIN users u ON u.id = l.user_id
+    WHERE l.status = 'success'
+    ORDER BY l.created_at DESC, l.id DESC
     LIMIT 1
   `).get();
 
   const lastFailure = db.prepare(`
-    SELECT created_at, type, user_id, message
-    FROM logs
-    WHERE status = 'failed'
-    ORDER BY created_at DESC
+    SELECT l.created_at, l.type,
+      COALESCE(NULLIF(l.nickname, ''), NULLIF(u.nickname, '')) AS nickname
+    FROM logs l LEFT JOIN users u ON u.id = l.user_id
+    WHERE l.status = 'failed'
+    ORDER BY l.created_at DESC, l.id DESC
     LIMIT 1
   `).get();
 
-  const oneHourAgo = getZonedDateTime(new Date(Date.now() - 60 * 60 * 1000));
+  const now = Date.now();
+  const oneHourAgo = getZonedDateTime(new Date(now - 60 * 60 * 1000));
+  const oneDayAgo = getZonedDateTime(new Date(now - 24 * 60 * 60 * 1000));
   const recentFailureRow = db.prepare(`
-    SELECT COUNT(1) AS total
+    SELECT COUNT(1) AS total,
+      SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS last_hour
     FROM logs
     WHERE status = 'failed'
-      AND created_at >= ?
-  `).get(oneHourAgo);
+      AND created_at >= ? AND created_at <= ?
+  `).get(oneHourAgo, oneDayAgo, getZonedDateTime(new Date(now)));
 
   const recentFailures = recentFailureRow?.total ?? 0;
 
   return {
-    status: recentFailures >= 3 ? "DEGRADED" : "HEALTHY",
+    status: (recentFailureRow?.last_hour ?? 0) >= 3 ? "DEGRADED" : "HEALTHY",
     lastSuccessAt: lastSuccess?.created_at ?? null,
     lastSuccessType: lastSuccess?.type ?? null,
+    lastSuccessNickname: lastSuccess?.nickname ?? null,
     lastFailureAt: lastFailure?.created_at ?? null,
     lastFailureType: lastFailure?.type ?? null,
-    recentFailuresLast60Minutes: recentFailures,
+    lastFailureNickname: lastFailure?.nickname ?? null,
+    recentFailuresLast60Minutes: recentFailureRow?.last_hour ?? 0,
+    recentFailuresLast24Hours: recentFailures,
   };
 }
 

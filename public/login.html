@@ -11,7 +11,7 @@
     <main class="auth-shell">
       <section class="auth-card" aria-labelledby="login-title">
         <div class="auth-brand">
-          <span class="brand-emoji login-brand-icon" aria-hidden="true">🤖</span>
+          <span class="brand-emoji brand-icon" aria-hidden="true">🤖</span>
           <div>
             <strong>Bot Absensi Pusaka</strong>
             <span>Admin Console</span>
@@ -20,20 +20,42 @@
 
         <div class="auth-copy">
           <h1 id="login-title">Masuk sebagai Admin</h1>
-          <p>Gunakan akun administrator untuk membuka dashboard dan pengelolaan bot.</p>
+          <p>
+            Gunakan akun administrator untuk membuka dashboard dan pengelolaan
+            bot.
+          </p>
         </div>
 
         <form id="login-form" class="auth-form" autocomplete="on">
           <input id="next" type="hidden" />
           <label>
             <span>Username</span>
-            <input id="username" name="username" type="text" autocomplete="username" required autofocus />
+            <input
+              id="username"
+              name="username"
+              type="text"
+              autocomplete="username"
+              required
+              autofocus
+            />
           </label>
           <label>
             <span>Password</span>
-            <input id="password" name="password" type="password" autocomplete="current-password" required />
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
           </label>
-          <button id="login-button" class="btn primary auth-submit" type="submit">Masuk</button>
+          <button
+            id="login-button"
+            class="btn primary auth-submit"
+            type="submit"
+          >
+            Masuk
+          </button>
           <p id="login-message" class="auth-message" aria-live="polite"></p>
         </form>
 

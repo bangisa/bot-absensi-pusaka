@@ -1,6 +1,8 @@
 import { isAdminAuthenticated } from '../services/index.js';
 
 const PUBLIC_PATHS = new Set([
+  '/',
+  '/index.html',
   '/login',
   '/privacy',
   '/privacy.html',
@@ -41,7 +43,7 @@ function requireAdmin(req, res, next) {
     });
   }
 
-  if (wantsHtml(req) || req.path.endsWith('.html') || req.path === '/') {
+  if (wantsHtml(req) || req.path.endsWith('.html') || req.path === '/dashboard') {
     const nextUrl = encodeURIComponent(req.originalUrl || '/');
     return res.redirect(`/login?next=${nextUrl}`);
   }

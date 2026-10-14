@@ -63,6 +63,18 @@ try {
     }
     return req.continue();
   });
+  await test('ENTRY-anonymous-routing',async()=>{
+    for(const route of ['/','/index.html']) {
+      await page.goto(base+route);
+      await page.waitForFunction(()=>location.pathname==='/login');
+      assert.equal(new URL(page.url()).searchParams.get('next'),'/dashboard.html');
+    }
+    for(const route of ['/dashboard','/dashboard.html']) {
+      const response=await fetch(base+route,{redirect:'manual'});
+      assert.equal(response.status,302);
+      assert.ok(response.headers.get('location').startsWith('/login?next='));
+    }
+  });
   await page.goto(base+'/login');
   await page.evaluate(async()=>{
     const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'dashboard-test',password:'DummyOnly123!'})});
@@ -70,6 +82,61 @@ try {
   });
   await page.goto(base+'/');
   await page.waitForFunction(()=>document.getElementById('refresh-status').textContent.startsWith('Terakhir diperbarui'));
+  await test('ENTRY-authenticated-routing',async()=>{
+    assert.equal(new URL(page.url()).pathname,'/dashboard.html');
+    await page.goto(base+'/index.html');
+    await page.waitForSelector('#refresh-dashboard');
+    assert.equal(new URL(page.url()).pathname,'/dashboard.html');
+    const response=await page.evaluate(async()=>{const r=await fetch('/dashboard');return new URL(r.url).pathname;});
+    assert.equal(response,'/dashboard.html');
+  });
+  await test('AUTOMATION-nickname-and-24-hours',async()=>{
+    const {default:Database}=await import('better-sqlite3');
+    const db=new Database(':memory:');
+    try {
+      db.exec('CREATE TABLE users (id INTEGER, nickname TEXT); CREATE TABLE logs (id INTEGER PRIMARY KEY, user_id INTEGER, nickname TEXT, type TEXT, status TEXT, created_at TEXT)');
+      db.prepare('INSERT INTO users VALUES (?,?)').run(1,'Current nickname');
+      const now=Date.parse('2026-10-14T01:00:00Z');
+      const zoned=d=>new Date(d.getTime()+7*3600000).toISOString().slice(0,19).replace('T',' ');
+      const insert=db.prepare('INSERT INTO logs (user_id,nickname,type,status,created_at) VALUES (?,?,?,?,?)');
+      for(const hours of [0.5,2,23,25]) insert.run(1,null,'masuk','failed',zoned(new Date(now-hours*3600000)));
+      insert.run(99,'Historical nickname','pulang','success',zoned(new Date(now)));
+      const source=fs.readFileSync(path.join(root,'app/services/health.service.js'),'utf8');
+      const fn=source.slice(source.indexOf('function getAutomationDiagnostics()'),source.indexOf('function checkScheduler()'));
+      const FixedDate=class extends Date {static now(){return now;}};
+      const result=new Function('db','getZonedDateTime','Date',fn+';return getAutomationDiagnostics();')(db,zoned,FixedDate);
+      assert.equal(result.lastSuccessNickname,'Historical nickname');
+      assert.equal(result.lastFailureNickname,'Current nickname');
+      assert.equal(result.recentFailuresLast24Hours,3);
+      assert.equal(result.recentFailuresLast60Minutes,1);
+      assert.equal(result.status,'HEALTHY');
+      const js=fs.readFileSync(path.join(root,'public/js/dashboard.js'),'utf8');
+      const render=js.slice(js.indexOf('function renderAutomation('),js.indexOf('function renderAudit('));
+      await page.evaluate((render,result)=>new Function('$','formatDateTime',render+';renderAutomation({checks:{automation:arguments[2]}});')(id=>document.getElementById(id),v=>v,result),render,result);
+      assert.equal(await page.$eval('#last-success-type',e=>e.textContent),'pulang - Historical nickname');
+      assert.equal(await page.$eval('#last-failure-type',e=>e.textContent),'masuk - Current nickname');
+      assert.equal(await page.$eval('#recent-failures',e=>e.textContent),'3');
+      assert.match(await page.content(),/Failure 24 jam terakhir/);
+    } finally {db.close();}
+  });
+  await test('TABLE-shared-pagination-and-empty-state',async()=>{
+    const result=await page.evaluate(async()=>{
+      const {paginate,updatePagination,createEmptyRow}=await import('/js/table-ui.js');
+      const rows=Array.from({length:21},(_,i)=>i);
+      const first=paginate(rows,0),last=paginate(rows,99),empty=paginate([],2);
+      const info=document.createElement('span'),previous=document.createElement('button'),next=document.createElement('button');
+      updatePagination(last,info,previous,next);
+      const row=createEmptyRow('<img src=x onerror=alert(1)>',7,'row-error');
+      return {first,last,empty,label:info.textContent,previous:previous.disabled,next:next.disabled,
+        columns:row.firstChild.colSpan,text:row.textContent,hasImage:!!row.querySelector('img'),className:row.className};
+    });
+    assert.deepEqual(result.first,{currentPage:1,totalPages:3,items:[0,1,2,3,4,5,6,7,8,9]});
+    assert.deepEqual(result.last,{currentPage:3,totalPages:3,items:[20]});
+    assert.deepEqual(result.empty,{currentPage:1,totalPages:1,items:[]});
+    assert.equal(result.label,'Hal 3/3');assert.equal(result.previous,false);assert.equal(result.next,true);
+    assert.equal(result.columns,7);assert.equal(result.className,'row-error');assert.equal(result.hasImage,false);
+    assert.equal(result.text,'<img src=x onerror=alert(1)>');
+  });
   await test('HEADER-timezone-date-boundary',async()=>{
     try {
       const source=fs.readFileSync(path.join(root,'public/js/dashboard.js'),'utf8');
@@ -107,7 +174,7 @@ try {
     }
   });
   await test('FRONTEND-current-static',()=>{
-    const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
+    const html=fs.readFileSync(path.join(root,'public/dashboard.html'),'utf8');
     assert.match(html,/<title>Dashboard · Bot Absensi Pusaka<\/title>/);
     assert.ok(!html.includes('global-health'));
     assert.match(html,/<section[^>]+id="lifecycle-banner"[^>]+hidden/);

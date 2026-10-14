@@ -380,16 +380,20 @@ function renderCore(health) {
 
 function renderAutomation(health) {
   const automation = health.checks?.automation ?? {};
-  $("last-success-type").textContent = automation.lastSuccessType ?? "-";
+  $("last-success-type").textContent = automation.lastSuccessType
+    ? `${automation.lastSuccessType} - ${automation.lastSuccessNickname || "-"}`
+    : "-";
   $("last-success-at").textContent = automation.lastSuccessAt
     ? formatDateTime(automation.lastSuccessAt)
     : "Belum ada data";
-  $("last-failure-type").textContent = automation.lastFailureType ?? "-";
+  $("last-failure-type").textContent = automation.lastFailureType
+    ? `${automation.lastFailureType} - ${automation.lastFailureNickname || "-"}`
+    : "-";
   $("last-failure-at").textContent = automation.lastFailureAt
     ? formatDateTime(automation.lastFailureAt)
     : "Belum ada data";
   $("recent-failures").textContent =
-    automation.recentFailuresLast60Minutes ?? 0;
+    automation.recentFailuresLast24Hours ?? 0;
 }
 
 function renderAudit(logs = []) {

@@ -202,39 +202,6 @@ function removeUser(id) {
     .run(id);
 }
 
-// ➕ BULK CREATE
-function insertUsers(users) {
-  const insert = db.prepare(`
-    INSERT OR IGNORE INTO users
-    (username, username_hash, nickname, password, latitude, longitude, auto_login)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const transaction = db.transaction((items) => {
-    for (const user of items) {
-      validateUser(user);
-
-      const username = String(user.username).trim();
-
-      insert.run(
-        encryptCredential(username),
-        createCredentialLookup(username),
-        user.nickname || null,
-        encryptCredential(user.password),
-        user.latitude || geoConfig.defaultLat,
-        user.longitude || geoConfig.defaultLng,
-        user.auto_login ?? 1,
-      );
-    }
-  });
-
-  transaction(users);
-
-  return {
-    total: users.length,
-  };
-}
-
 export {
   createManagedUser,
   findAllUsers,
@@ -244,5 +211,4 @@ export {
   insertUser,
   updateUser,
   removeUser,
-  insertUsers,
 };
