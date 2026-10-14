@@ -116,7 +116,7 @@ try {
       assert.equal(await page.$eval('#last-success-type',e=>e.textContent),'pulang - Historical nickname');
       assert.equal(await page.$eval('#last-failure-type',e=>e.textContent),'masuk - Current nickname');
       assert.equal(await page.$eval('#recent-failures',e=>e.textContent),'2');
-      assert.match(await page.content(),/Failure hari ini/);
+      assert.match(await page.$eval('#recent-failures',e=>e.parentElement.textContent),/hari ini/i);
       db.exec('DELETE FROM logs');
       now=Date.parse('2026-10-14T17:15:00Z'); // 00:15 on October 15 in Jakarta.
       insert.run(1,null,'masuk','failed','2026-10-14 23:59:59');

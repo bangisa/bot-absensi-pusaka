@@ -8,7 +8,10 @@
     "start": "node --env-file=.env index.js",
     "dev": "node --env-file=.env --trace-warnings index.js",
     "admin:hash": "node scripts/hash-admin-password.js",
-    "admin:reset": "node scripts/reset-admin-password.js"
+    "admin:reset": "node scripts/reset-admin-password.js",
+    "admin:diagnostics": "node scripts/admin-diagnostics.js",
+    "admin:backup": "node scripts/admin-backup.js",
+    "admin:restore": "node scripts/admin-restore.js"
   },
   "dependencies": {
     "axios": "^1.14.0",

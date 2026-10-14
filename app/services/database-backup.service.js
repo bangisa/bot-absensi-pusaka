@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { schedule } from "node-cron";
 
 import db from "../../database/db.js";
@@ -8,6 +7,7 @@ import { backupConfig } from "../config/backup.config.js";
 import { timeConfig } from "../config/time.config.js";
 import { logger } from "../helpers/index.js";
 import { getZonedDateTime, sleep } from "../helpers/time.helper.js";
+import { createDatabaseSnapshot, cleanupDatabaseBackups } from "../helpers/database-backup.helper.js";
 
 let backupJob = null;
 let backupRunning = false;
@@ -25,37 +25,8 @@ function ensureBackupDirectory() {
   return directory;
 }
 
-function backupTimestamp(date = new Date()) {
-  const zoned = getZonedDateTime(date);
-  return zoned.replace(/:/g, "-").replace(" ", "_");
-}
-
-function listBackupFiles(directory) {
-  return fs
-    .readdirSync(directory, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && /^db-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:-[a-f0-9-]{36})?\.sqlite$/.test(entry.name))
-    .map((entry) => {
-      const fullPath = path.join(directory, entry.name);
-      const stat = fs.statSync(fullPath);
-      return {
-        name: entry.name,
-        fullPath,
-        mtimeMs: stat.mtimeMs,
-        sizeBytes: stat.size,
-      };
-    })
-    .sort((a, b) => b.mtimeMs - a.mtimeMs);
-}
-
 function cleanupOldBackups(directory) {
-  const files = listBackupFiles(directory);
-  const obsolete = files.slice(backupConfig.retentionCount);
-
-  for (const file of obsolete) {
-    fs.unlinkSync(file.fullPath);
-  }
-
-  return obsolete.length;
+  return cleanupDatabaseBackups(directory, backupConfig.retentionCount);
 }
 
 async function executeBackup(trigger = "scheduled") {
@@ -74,31 +45,26 @@ async function executeBackup(trigger = "scheduled") {
   const started = Date.now();
 
   currentBackupPromise = (async () => {
-    let destination;
-
     try {
       const directory = ensureBackupDirectory();
-      destination = path.join(directory, `db-${backupTimestamp()}-${randomUUID()}.sqlite`);
       logger.info("database.backup_started", "Database backup dimulai", { trigger });
       // better-sqlite3 online backup API membuat snapshot SQLite yang konsisten
       // tanpa harus menutup koneksi database utama.
-      await db.backup(destination);
-
-      const stat = fs.statSync(destination);
-      if (stat.size <= 0) {
-        throw new Error("Backup database kosong");
-      }
-
-      lastDeletedCount = cleanupOldBackups(directory);
+      const result = await createDatabaseSnapshot(db, {
+        directory,
+        retentionCount: backupConfig.retentionCount,
+        timestamp: getZonedDateTime(),
+      });
+      lastDeletedCount = result.oldBackupsDeleted;
       lastSuccessAt = getZonedDateTime();
-      lastBackupFile = path.relative(process.cwd(), destination);
+      lastBackupFile = path.relative(process.cwd(), result.file);
       lastDurationMs = Date.now() - started;
       lastError = null;
 
       logger.info("database.backup_completed", "Weekly database backup selesai", {
         trigger,
         file: lastBackupFile,
-        sizeBytes: stat.size,
+        sizeBytes: result.sizeBytes,
         durationMs: lastDurationMs,
         retentionCount: backupConfig.retentionCount,
         oldBackupsDeleted: lastDeletedCount,
@@ -107,19 +73,13 @@ async function executeBackup(trigger = "scheduled") {
       return {
         success: true,
         file: lastBackupFile,
-        sizeBytes: stat.size,
+        sizeBytes: result.sizeBytes,
         durationMs: lastDurationMs,
         oldBackupsDeleted: lastDeletedCount,
       };
     } catch (err) {
       lastError = err.message;
       lastDurationMs = Date.now() - started;
-
-      try {
-        if (destination && fs.existsSync(destination)) fs.unlinkSync(destination);
-      } catch {
-        // Ignore cleanup error; original backup error is more useful.
-      }
 
       logger.error("database.backup_failed", err.message, {
         trigger,
