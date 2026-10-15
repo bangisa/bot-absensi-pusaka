@@ -204,6 +204,17 @@ h2 {
   padding: 16px;
 }
 
+.page-footer {
+  margin-top: 24px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.page-footer small {
+  font-size: 12px;
+}
+
 .status-pill,
 .badge {
   display: inline-flex;
