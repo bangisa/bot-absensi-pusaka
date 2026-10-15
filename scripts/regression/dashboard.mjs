@@ -46,14 +46,21 @@ try {
   const acknowledged = new Promise(r=>child.once('message',r)); child.send('regression-holiday'); await acknowledged;
   browser = await puppeteer.launch({ headless:true });
   page = await browser.newPage();
-  page.on('pageerror', e=>browserErrors.push(e.message));
+  page.on('pageerror', e=>{browserErrors.push(e.message);console.error(e.stack);});
   let mockDraining=false;
   let mockTimezone=null;
+  let mockTables=false;
   await page.setRequestInterception(true);
   page.on('request', async req => {
     const url=new URL(req.url());
     if(url.origin!==base) return req.abort();
     trace.push({path:url.pathname,method:req.method(),csrf:Boolean(req.headers()['x-csrf-token'])});
+    if(mockTables && req.method()==='GET' && ['/api/users','/api/system/logs'].includes(url.pathname)) {
+      const body=Array.from({length:21},(_,i)=>url.pathname==='/api/users'
+        ? {id:i+1,nickname:`Dummy ${i+1}`,usernameMasked:'123****89',latitude:0,longitude:0,service_days_total:30,service_days_used:1,service_days_remaining:29,service_status:'active'}
+        : {id:i+1,nickname:`Dummy ${i+1}`,type:i%2?'pulang':'masuk',status:i%2?'failed':'success',message:'Dummy result',created_at:'2026-10-15T07:30:00+07:00'});
+      return req.respond({status:200,contentType:'application/json',body:JSON.stringify(body)});
+    }
     if((mockDraining || mockTimezone) && ['/api/system/health','/api/system/diagnostics'].includes(url.pathname)) {
       const cookie=(await page.cookies()).map(c=>`${c.name}=${c.value}`).join('; ');
       const original=await fetch(req.url(),{headers:{Cookie:cookie}}); const body=await original.json();
@@ -81,7 +88,7 @@ try {
     if(!r.ok)throw new Error('Dummy login failed');
   });
   await page.goto(base+'/');
-  await page.waitForFunction(()=>document.getElementById('refresh-status').textContent.startsWith('Terakhir diperbarui'));
+  await page.waitForFunction(()=>document.getElementById('refresh-status')?.textContent.startsWith('Terakhir diperbarui'));
   await test('ENTRY-authenticated-routing',async()=>{
     assert.equal(new URL(page.url()).pathname,'/dashboard.html');
     await page.goto(base+'/index.html');
@@ -290,6 +297,56 @@ try {
   await test('USERS-LOGS-smoke',async()=>{
     for(const url of ['/users.html','/logs.html']){const response=await page.goto(base+url);assert.equal(response.status(),200);}
     assert.deepEqual(browserErrors,[]);
+  });
+  await test('USERS-LOGS-responsive-layout-and-controls',async()=>{
+    mockTables=true;
+    try {
+      for(const width of [320,390,768,1440]) {
+        await page.setViewport({width,height:900});
+        await page.goto(base+'/dashboard.html');
+        const dashboard=await page.$eval('.container',e=>({left:e.getBoundingClientRect().left,width:e.getBoundingClientRect().width}));
+        const card=await page.$eval('.ops-card',e=>({background:getComputedStyle(e).backgroundImage,radius:getComputedStyle(e).borderRadius}));
+        for(const name of ['users','logs']) {
+          await page.goto(base+`/${name}.html`);
+          const rows=name==='users'?'#users-list':'#logs';
+          await page.waitForFunction(selector=>document.querySelector(selector).children.length===10,{},rows);
+          const layout=await page.evaluate(()=>{
+            const container=document.querySelector('.container'), table=document.querySelector('.table-wrapper'), card=document.querySelector('.ops-card');
+            return {left:container.getBoundingClientRect().left,width:container.getBoundingClientRect().width,
+              overflow:document.documentElement.scrollWidth>innerWidth+1,tableScroll:getComputedStyle(table).overflowX,
+              background:getComputedStyle(card).backgroundImage,radius:getComputedStyle(card).borderRadius};
+          });
+          assert.equal(layout.left,dashboard.left);assert.equal(layout.width,dashboard.width);
+          assert.equal(layout.background,card.background);assert.equal(layout.radius,card.radius);
+          assert.equal(layout.overflow,false);assert.equal(layout.tableScroll,'auto');
+          await page.click(`#${name}-next`);
+          assert.equal(await page.$eval(`#${name}-page-info`,e=>e.textContent),'Hal 2/3');
+          await page.click(`#${name}-next`);
+          assert.equal(await page.$eval(rows,e=>e.children.length),1);
+          assert.equal(await page.$eval(`#${name}-next`,e=>e.disabled),true);
+          await page.click(`#${name}-prev`);
+          assert.equal(await page.$eval(rows,e=>e.children.length),10);
+          if(name==='users') {
+            await page.click('#open-user-modal');assert.equal(await page.$eval('#user-modal',e=>e.open),true);
+            await page.click('#close-user-modal');
+          } else {
+            await page.select('#status-filter','failed');
+            assert.equal(await page.$eval('#logs-summary',e=>e.textContent),'10/21 log');
+            await page.select('#type-filter','masuk');
+            assert.equal(await page.$eval('#logs-summary',e=>e.textContent),'0/21 log');
+            await page.select('#status-filter','all');await page.select('#type-filter','all');
+            await page.type('#log-search','Dummy 21');
+            assert.equal(await page.$eval('#logs-summary',e=>e.textContent),'1/21 log');
+            await page.$eval('#log-search',e=>{e.value='';e.dispatchEvent(new Event('input'));});
+          }
+          await page.screenshot({path:path.join(sandbox,`${name}-layout-${width}.png`),fullPage:true});
+          await page.click('nav a[href="/dashboard.html"]');
+          await page.waitForSelector('#refresh-dashboard');
+        }
+      }
+      assert.deepEqual(browserErrors,[]);
+      return '320/390/768/1440px: dashboard width/card match, no page overflow, pagination, filters, modal and navigation';
+    } finally { mockTables=false; }
   });
   await test('BACKUP-manual-CSRF-retention-integrity',async()=>{
     await page.goto(base+'/');

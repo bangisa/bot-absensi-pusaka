@@ -8,29 +8,31 @@
     <link rel="stylesheet" href="/css/style.css" />
   </head>
   <body>
-    <div class="container">
-      <header class="topbar">
+    <div class="container workspace-page">
+      <header class="topbar dashboard-topbar">
         <a class="app-title" href="/dashboard.html">
           <span class="brand-emoji" aria-hidden="true">🤖</span>
           <span>Bot Absensi Pusaka</span>
         </a>
-        <nav class="nav-links" aria-label="Navigasi utama">
-          <a href="/dashboard.html">Dashboard</a>
-          <a href="/users.html">Users</a>
-          <a class="active" href="/logs.html">Logs</a>
-          <form class="logout-form" method="post" action="/auth/logout">
-            <button class="nav-logout" type="submit">Logout</button>
-          </form>
-        </nav>
+        <div class="topbar-actions">
+          <nav class="nav-links" aria-label="Navigasi utama">
+            <a href="/dashboard.html">Dashboard</a>
+            <a href="/users.html">Users</a>
+            <a class="active" href="/logs.html">Logs</a>
+            <form class="logout-form" method="post" action="/auth/logout">
+              <button class="nav-logout" type="submit">Logout</button>
+            </form>
+          </nav>
+        </div>
       </header>
 
       <main>
-        <section class="page-header">
+        <section class="page-header ops-card">
           <h1>Logs</h1>
           <button id="refresh-logs" class="btn secondary" type="button">Refresh</button>
         </section>
 
-        <section class="filters" aria-label="Filter log">
+        <section class="filters ops-card" aria-label="Filter log">
           <label>
             <span>Status</span>
             <select id="status-filter">
@@ -54,7 +56,7 @@
           </label>
         </section>
 
-        <section class="panel table-panel">
+        <section class="panel table-panel ops-card">
           <div class="table-meta">
             <p id="logs-summary" class="muted">Memuat...</p>
           </div>

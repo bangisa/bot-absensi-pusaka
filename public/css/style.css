@@ -724,8 +724,15 @@ select:focus {
 }
 
 /* Dashboard V2 */
-.dashboard-v2 {
+.dashboard-v2,
+.workspace-page {
   width: min(1280px, calc(100% - 32px));
+}
+
+.workspace-page main,
+.workspace-page .ops-card,
+.workspace-page .table-wrapper {
+  min-width: 0;
 }
 
 .dashboard-topbar {

@@ -8,24 +8,26 @@
     <link rel="stylesheet" href="/css/style.css" />
   </head>
   <body>
-    <div class="container">
-      <header class="topbar">
+    <div class="container workspace-page">
+      <header class="topbar dashboard-topbar">
         <a class="app-title" href="/dashboard.html">
           <span class="brand-emoji" aria-hidden="true">🤖</span>
           <span>Bot Absensi Pusaka</span>
         </a>
-        <nav class="nav-links" aria-label="Navigasi utama">
-          <a href="/dashboard.html">Dashboard</a>
-          <a class="active" href="/users.html">Users</a>
-          <a href="/logs.html">Logs</a>
-          <form class="logout-form" method="post" action="/auth/logout">
-            <button class="nav-logout" type="submit">Logout</button>
-          </form>
-        </nav>
+        <div class="topbar-actions">
+          <nav class="nav-links" aria-label="Navigasi utama">
+            <a href="/dashboard.html">Dashboard</a>
+            <a class="active" href="/users.html">Users</a>
+            <a href="/logs.html">Logs</a>
+            <form class="logout-form" method="post" action="/auth/logout">
+              <button class="nav-logout" type="submit">Logout</button>
+            </form>
+          </nav>
+        </div>
       </header>
 
       <main>
-        <section class="page-header">
+        <section class="page-header ops-card">
           <div class="users-heading">
             <h1>Users</h1>
             <p id="users-summary" class="muted">Memuat...</p>
@@ -35,7 +37,7 @@
           </button>
         </section>
 
-        <section class="panel table-panel">
+        <section class="panel table-panel ops-card">
           <div class="table-wrapper">
             <table class="data-table users-table">
               <thead>
