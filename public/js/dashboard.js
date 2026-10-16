@@ -37,6 +37,10 @@ let dashboardTimeZone = null;
 let restartInProgress = false;
 let timezoneRestartWaiting = false;
 let timezoneChangeLocked = false;
+let timezoneDirty = false;
+let timezoneSaving = false;
+
+$("timezone-input").addEventListener("change", () => { timezoneDirty = true; });
 
 function showOperationalSettings(setting) {
   $("geo-radius-input").value = setting.geoRadiusMeters;
@@ -92,10 +96,13 @@ function showCalendarSetting(setting) {
 
 function showTimezoneSetting(setting) {
   timezoneChangeLocked = Boolean(setting.pendingRestart || setting.retryAfterSeconds > 0);
-  $("timezone-input").value = setting.value;
+  if (timezoneChangeLocked || (!timezoneDirty && !timezoneSaving)) {
+    $("timezone-input").value = setting.value;
+    if (timezoneChangeLocked) timezoneDirty = false;
+  }
   $("restart-timezone").hidden = !setting.restartRequired || setting.pendingRestart;
-  $("timezone-input").disabled = timezoneChangeLocked;
-  $("save-timezone").disabled = timezoneChangeLocked;
+  $("timezone-input").disabled = timezoneChangeLocked || timezoneSaving;
+  $("save-timezone").disabled = timezoneChangeLocked || timezoneSaving;
   $("restart-timezone").disabled = timezoneChangeLocked;
   $("timezone-restart-banner").hidden = !setting.pendingRestart;
   if (setting.pendingRestart) {
@@ -219,20 +226,26 @@ $("reset-holiday-calendar").addEventListener("click", () =>
 $("timezone-settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const button = $("save-timezone");
+  const selectedTimezone = $("timezone-input").value;
   if (
     button.disabled ||
     !window.confirm(
-      "Ubah timezone dan restart otomatis setelah seluruh jadwal serta retry selesai? Setelah diterima, timezone tidak dapat diubah lagi selama 24 jam. Generator akan berhenti; timezone lama tetap dipakai sampai pekerjaan selesai. Setelah restart, scheduler mengikuti AUTO_START.",
+      `Ubah timezone ke ${selectedTimezone} dan restart otomatis setelah seluruh jadwal serta retry selesai? Setelah diterima, timezone tidak dapat diubah lagi selama 24 jam. Generator akan berhenti; timezone lama tetap dipakai sampai pekerjaan selesai. Setelah restart, scheduler mengikuti AUTO_START.`,
     )
   )
     return;
+  timezoneSaving = true;
   button.disabled = true;
+  $("timezone-input").disabled = true;
   try {
-    const setting = await updateTimezone($("timezone-input").value);
+    const setting = await updateTimezone(selectedTimezone);
+    timezoneDirty = false;
     showTimezoneSetting(setting);
   } catch (error) {
     $("timezone-setting-status").textContent = readableError(error);
   } finally {
+    timezoneSaving = false;
+    $("timezone-input").disabled = timezoneChangeLocked;
     button.disabled = timezoneRestartWaiting || timezoneChangeLocked;
   }
 });

@@ -52,11 +52,25 @@ try {
   let mockTables=false;
   let mockUsage=false;
   let mockRestartPending=false;
+  let timezoneRequestFixture=null;
   await page.setRequestInterception(true);
   page.on('request', async req => {
     const url=new URL(req.url());
     if(url.origin!==base) return req.abort();
     trace.push({path:url.pathname,method:req.method(),csrf:Boolean(req.headers()['x-csrf-token'])});
+    if(timezoneRequestFixture && url.pathname==='/api/system/settings/timezone') {
+      const fixture=timezoneRequestFixture;
+      if(req.method()==='PUT') {
+        fixture.body=JSON.parse(req.postData());
+        await fixture.saveGate;
+        return req.respond({status:400,contentType:'application/json',body:JSON.stringify({error:'Permintaan tidak valid.'})});
+      }
+      if(req.method()==='GET') {
+        fixture.reads++;
+        await fixture.readGate;
+        return req.respond({status:200,contentType:'application/json',body:JSON.stringify({value:'Asia/Jakarta',active:'Asia/Jakarta',restartRequired:false})});
+      }
+    }
     if(mockRestartPending && url.pathname==='/api/system/settings/timezone' && req.method()==='GET') {
       return req.respond({status:200,contentType:'application/json',body:JSON.stringify({value:'Asia/Makassar',active:'Asia/Jakarta',restartRequired:true,pendingRestart:true,remainingSchedules:2})});
     }
@@ -605,6 +619,60 @@ try {
       if(scenario==='recover'){assert.deepEqual(redirects,['/dashboard.html']);assert.equal(calls,3);}
       if(scenario==='login')assert.deepEqual(redirects,['/login?next=%2Fdashboard.html']);
       if(scenario==='timeout'){assert.equal(calls,80);assert.equal(elements['restart-reload'].hidden,false);assert.match(elements['restart-progress'].textContent,/belum siap/);}
+    }
+  });
+  await test('TIMEZONE-unsaved-selection-survives-refresh',async()=>{
+    let release;
+    const fixture={reads:0,readGate:new Promise(r=>{release=r;})};
+    timezoneRequestFixture=fixture;
+    try {
+      await page.reload({waitUntil:'domcontentloaded'});
+      await page.waitForSelector('#timezone-input');
+      await wait(()=>fixture.reads>0);
+      await page.select('#timezone-input','Asia/Jayapura');
+      release();
+      await page.waitForFunction(()=>document.getElementById('refresh-status').textContent.startsWith('Terakhir diperbarui'));
+      assert.equal(await page.$eval('#timezone-input',e=>e.value),'Asia/Jayapura');
+      const before=fixture.reads;
+      await page.click('#refresh-dashboard');
+      await wait(()=>fixture.reads>before);
+      await sleep(200);
+      assert.equal(await page.$eval('#timezone-input',e=>e.value),'Asia/Jayapura');
+      const manual=fixture.reads;
+      await wait(()=>fixture.reads>manual);
+      await sleep(200);
+      assert.equal(await page.$eval('#timezone-input',e=>e.value),'Asia/Jayapura');
+    } finally {release();timezoneRequestFixture=null;}
+  });
+  await test('TIMEZONE-captured-save-and-inflight-lock',async()=>{
+    let release;
+    const fixture={reads:0,saveGate:new Promise(r=>{release=r;})};
+    timezoneRequestFixture=fixture;
+    try {
+      await page.evaluate(()=>{
+        window.originalConfirm=window.confirm;
+        window.confirm=message=>{window.confirmMessage=message;document.getElementById('timezone-input').value='Asia/Jakarta';return true;};
+      });
+      await page.select('#timezone-input','Asia/Makassar');
+      await page.click('#save-timezone');
+      await wait(()=>Boolean(fixture.body));
+      assert.equal(fixture.body.value,'Asia/Makassar');
+      assert.match(await page.evaluate(()=>window.confirmMessage),/Asia\/Makassar/);
+      assert.equal(await page.$eval('#timezone-input',e=>e.disabled),true);
+      const before=fixture.reads;
+      await page.click('#refresh-dashboard');
+      await wait(()=>fixture.reads>before);
+      await sleep(200);
+      assert.equal(await page.$eval('#timezone-input',e=>e.disabled),true);
+      assert.equal(await page.$eval('#save-timezone',e=>e.disabled),true);
+      release();
+      await page.waitForFunction(()=>!document.getElementById('save-timezone').disabled);
+      assert.equal(await page.$eval('#timezone-input',e=>e.disabled),false);
+    } finally {
+      release();timezoneRequestFixture=null;
+      await page.evaluate(()=>{window.confirm=window.originalConfirm;});
+      await page.reload();
+      await page.waitForFunction(()=>!document.getElementById('save-timezone').disabled);
     }
   });
   await test('TIMEZONE-restart-confirmation-and-guards',async()=>{
