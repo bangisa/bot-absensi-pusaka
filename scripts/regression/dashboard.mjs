@@ -50,6 +50,7 @@ try {
   let mockDraining=false;
   let mockTimezone=null;
   let mockTables=false;
+  let mockUsage=false;
   await page.setRequestInterception(true);
   page.on('request', async req => {
     const url=new URL(req.url());
@@ -57,7 +58,7 @@ try {
     trace.push({path:url.pathname,method:req.method(),csrf:Boolean(req.headers()['x-csrf-token'])});
     if(mockTables && req.method()==='GET' && ['/api/users','/api/system/logs'].includes(url.pathname)) {
       const body=Array.from({length:21},(_,i)=>url.pathname==='/api/users'
-        ? {id:i+1,nickname:`Dummy ${i+1}`,usernameMasked:'123****89',latitude:0,longitude:0,service_days_total:30,service_days_used:1,service_days_remaining:29,service_status:'active'}
+        ? {id:i+1,nickname:`Dummy ${i+1}`,usernameMasked:'123****89',latitude:0,longitude:0,service_days_total:30,service_days_used:mockUsage?([0,1824,1825,1826,99999][i]??1):1,service_days_remaining:29,service_status:'active'}
         : {id:i+1,nickname:`Dummy ${i+1}`,type:i%2?'pulang':'masuk',status:i%2?'failed':'success',message:'Dummy result',created_at:'2026-10-15T07:30:00+07:00'});
       return req.respond({status:200,contentType:'application/json',body:JSON.stringify(body)});
     }
@@ -347,6 +348,37 @@ try {
       assert.deepEqual(browserErrors,[]);
       return '320/390/768/1440px: dashboard width/card match, no page overflow, pagination, filters, modal and navigation';
     } finally { mockTables=false; }
+  });
+  await test('USERS-usage-display-limit',async()=>{
+    mockTables=true;mockUsage=true;
+    try {
+      await page.goto(base+'/users.html');
+      await page.waitForFunction(()=>document.querySelectorAll('#users-list tr').length===10);
+      const values=await page.$$eval('#users-list tr',rows=>rows.slice(0,5).map(row=>row.cells[3].textContent));
+      assert.deepEqual(values,['0','1824','1825','>1.825','>1.825']);
+      const raw=await page.evaluate(async()=>(await(await fetch('/api/users')).json()).slice(0,5).map(u=>u.service_days_used));
+      assert.deepEqual(raw,[0,1824,1825,1826,99999]);
+      for(const width of [320,1440]) {
+        await page.setViewport({width,height:900});
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+        await page.screenshot({path:path.join(sandbox,`users-usage-${width}.png`),fullPage:true});
+      }
+      return '1825 unchanged; 1826 and 99999 capped for display only; raw API values unchanged';
+    } finally {mockTables=false;mockUsage=false;}
+  });
+  await test('BACKUP-weekly-interval-label',async()=>{
+    await page.goto(base+'/dashboard.html');
+    await page.waitForSelector('#backup-now');
+    const interval=await page.$eval('#backup-now',button=>[...button.closest('article').querySelectorAll('.ops-list > div')].find(row=>row.querySelector('span')?.textContent==='Interval')?.querySelector('small')?.textContent);
+    assert.equal(interval,'Mingguan (setiap 7 hari)');
+    for(const width of [320,390,1440]) {
+      await page.setViewport({width,height:900});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+      await (await page.$('#backup-now')).evaluate(button=>button.closest('article').scrollIntoView());
+      await (await page.$('#backup-now')).evaluate(button=>{button.blur();});
+      const card=await page.$('#backup-now');
+      await (await card.evaluateHandle(e=>e.closest('article'))).asElement().screenshot({path:path.join(sandbox,`backup-interval-${width}.png`)});
+    }
   });
   await test('BACKUP-manual-CSRF-retention-integrity',async()=>{
     await page.goto(base+'/');
