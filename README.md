@@ -10,7 +10,8 @@ Bot Absensi Pusaka adalah aplikasi automation privat untuk mengelola jadwal dan 
 - Tambah, edit, dan hapus user dengan nickname serta credential terenkripsi. Password lama tidak dikirim ke frontend.
 - Paket 1, 7, 30, 90 hari layanan atau tak terbatas. Masuk dan pulang pada hari yang sama dihitung satu hari; hari libur tidak mengurangi kuota.
 - Kalender libur dengan provider fallback dan pengaturan URL kalender JSON yang didukung.
-- Pengaturan timezone dengan tanggal dan jam sesuai wilayah operasional.
+- Pengaturan timezone dengan tanggal dan jam sesuai wilayah, konfirmasi restart aplikasi melalui PM2, serta layar tunggu sampai aplikasi kembali tersedia.
+- Pengaturan operasional tersimpan di database: radius geolokasi 0-200 meter, backup aktif/nonaktif, retention 1-8 file, dan retensi log presensi 3 atau 7 hari.
 - Log dengan pagination, filter, normalisasi status, dan redaksi data sensitif.
 - Backup SQLite mingguan dan manual, dengan default retention 4 file.
 - Login admin, CSRF protection, pembatasan percobaan login, dan dukungan HTTPS melalui reverse proxy.
@@ -85,7 +86,22 @@ npm run dev
 
 Aplikasi berjalan pada port yang ditentukan oleh `PORT`, default `3000`.
 
-Perubahan timezone dari dashboard memerlukan restart aplikasi; jadwal dan log lama tidak dikonversi.
+Perubahan timezone dari dashboard memerlukan scheduler berhenti, queue/browser selesai, dan tidak ada jadwal pending/processing. Setelah disimpan, konfirmasikan restart atau gunakan tombol Restart Aplikasi kemudian. Restart otomatis memerlukan PM2 dengan autorestart aktif; jadwal dan log lama tidak dikonversi. Dengan `AUTO_START=false`, jalankan scheduler kembali setelah restart.
+
+## Pengaturan Operasional
+
+Pengaturan pada dashboard tersimpan di `system_settings` dan tetap tersedia setelah restart. Concurrency, kalender JSON, serta pengaturan operasional diterapkan tanpa restart; timezone diterapkan setelah restart.
+
+| Pengaturan | Pilihan | Penerapan |
+| --- | --- | --- |
+| Radius geolokasi | 0-200 meter | Proses automation berikutnya; 0 tanpa offset acak |
+| Backup otomatis | Aktif atau nonaktif | Mengatur layanan backup runtime, termasuk ketersediaan tombol Backup |
+| Jumlah backup disimpan | 1-8 file, default 4 | Pembersihan setelah snapshot baru berhasil dibuat |
+| Retensi log presensi | 3 atau 7 hari, default 3 | Cleanup berikutnya; tidak mengubah retensi audit atau log server |
+
+Nilai database mengambil prioritas atas default `.env` tanpa menulis ulang file tersebut. Cron dan folder backup, credential, pengaturan sesi, serta `AUTO_START` tetap dikelola melalui `.env`. CLI `admin:backup` masih memakai retention dari `.env`, bukan pengaturan runtime dashboard.
+
+Dashboard menampilkan enam card ringkasan dalam satu baris pada desktop dan menyesuaikan menjadi 3, 2, atau 1 kolom pada layar lebih kecil. Card operasional menggunakan dua kolom pada desktop dan satu kolom pada layar kecil.
 
 ## Pengujian Lokal
 
