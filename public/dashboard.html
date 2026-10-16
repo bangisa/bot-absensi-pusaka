@@ -217,7 +217,7 @@
           </article>
         </section>
 
-        <section class="dashboard-grid three-column">
+        <section class="dashboard-grid two-column">
           <article class="ops-card compact-card">
             <div class="ops-card-header">
               <div>
@@ -358,27 +358,31 @@
               </button>
             </form>
           </article>
-        </section>
-
-        <section class="ops-card">
+          <article class="ops-card">
           <div class="ops-card-header">
             <h2>Pengaturan Operasional</h2>
           </div>
           <form id="operational-settings-form" class="dashboard-setting runtime-setting-box">
             <label for="geo-radius-input">Radius Geolokasi (meter)</label>
-            <input id="geo-radius-input" type="number" min="0" max="10000" step="1" required />
+            <input id="geo-radius-input" type="number" min="0" max="200" step="1" aria-describedby="geo-radius-limit" required />
+            <small id="geo-radius-limit">0-200 meter</small>
             <label for="backup-enabled-input">
               <input id="backup-enabled-input" type="checkbox" /> Backup Otomatis Aktif
             </label>
             <label for="backup-retention-input">Jumlah Backup Disimpan</label>
-            <input id="backup-retention-input" type="number" min="1" max="100" step="1" required />
-            <label for="log-retention-input">Retensi Log Presensi (hari)</label>
-            <input id="log-retention-input" type="number" min="1" max="3650" step="1" required />
+            <input id="backup-retention-input" type="number" min="1" max="8" step="1" aria-describedby="backup-retention-limit" required />
+            <small id="backup-retention-limit">1-8 file backup</small>
+            <label for="log-retention-input">Retensi Log Presensi</label>
+            <select id="log-retention-input" required>
+              <option value="3">3 Hari</option>
+              <option value="7">7 Hari</option>
+            </select>
             <div class="setting-actions">
               <button id="save-operational" type="submit" class="btn primary" disabled>Simpan</button>
             </div>
             <small id="operational-setting-status" role="status">Memuat...</small>
           </form>
+          </article>
         </section>
 
         <section class="dashboard-grid two-column lower-grid">
@@ -433,6 +437,15 @@
       </footer>
     </div>
 
+    <section id="restart-screen" class="restart-screen" role="status" aria-live="polite" aria-labelledby="restart-title" tabindex="-1" hidden>
+      <div class="entry-shell">
+        <img src="/favicon.svg" alt="" width="48" height="48" />
+        <h1 id="restart-title">Memulai ulang aplikasi</h1>
+        <div class="entry-progress" aria-hidden="true"></div>
+        <p id="restart-progress" class="muted">Menunggu aplikasi siap...</p>
+        <a id="restart-reload" class="btn secondary" href="/dashboard.html" hidden>Muat Ulang</a>
+      </div>
+    </section>
     <script type="module" src="/js/dashboard.js"></script>
     <script type="module" src="/js/auth-ui.js"></script>
   </body>

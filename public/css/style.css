@@ -47,6 +47,17 @@ select {
   text-align: center;
 }
 
+.restart-screen:not([hidden]) {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: var(--bg);
+  overflow-y: auto;
+}
+
 .entry-shell h1 {
   font-size: 22px;
   line-height: 1.3;
@@ -976,7 +987,7 @@ html:has(.dashboard-v2, .workspace-page) {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -1243,7 +1254,7 @@ html:has(.dashboard-v2, .workspace-page) {
 
 @media (max-width: 1080px) {
   .summary-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .dashboard-grid.three-column {

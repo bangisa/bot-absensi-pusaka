@@ -33,12 +33,21 @@ const maxConcurrentSource = $("max-concurrent-source");
 let refreshInFlight = false;
 let maxConcurrentDirty = false;
 let dashboardTimeZone = null;
+let restartInProgress = false;
 
 function showOperationalSettings(setting) {
   $("geo-radius-input").value = setting.geoRadiusMeters;
   $("backup-enabled-input").checked = setting.backupEnabled;
   $("backup-retention-input").value = setting.backupRetentionCount;
-  $("log-retention-input").value = setting.logRetentionDays;
+  const retention = $("log-retention-input");
+  retention.querySelector('[data-legacy]')?.remove();
+  if (![3, 7].includes(setting.logRetentionDays)) {
+    const option = new Option(`${setting.logRetentionDays} Hari (tersimpan)`, String(setting.logRetentionDays));
+    option.dataset.legacy = "true";
+    option.disabled = true;
+    retention.add(option);
+  }
+  retention.value = String(setting.logRetentionDays);
 }
 
 getOperationalSettings().then((setting) => {
@@ -60,7 +69,7 @@ $("operational-settings-form").addEventListener("submit", async (event) => {
       geoRadiusMeters: $("geo-radius-input").valueAsNumber,
       backupEnabled: $("backup-enabled-input").checked,
       backupRetentionCount: $("backup-retention-input").valueAsNumber,
-      logRetentionDays: $("log-retention-input").valueAsNumber,
+      logRetentionDays: Number($("log-retention-input").value),
     }));
     $("operational-setting-status").textContent = "Tersimpan. Berlaku untuk proses berikutnya, tanpa restart.";
     await refreshDashboard();
@@ -91,13 +100,43 @@ async function confirmTimezoneRestart() {
   const button = $("restart-timezone");
   if (button.disabled) return;
   button.disabled = true;
+  restartInProgress = true;
+  $("restart-screen").hidden = false;
+  document.querySelector('.dashboard-v2').inert = true;
+  $("restart-screen").focus();
   try {
     await restartForTimezone();
-    $("timezone-setting-status").textContent = "Restart diminta. Muat ulang halaman setelah beberapa detik; login kembali jika diperlukan.";
+    await waitForRestart();
   } catch (error) {
+    restartInProgress = false;
+    $("restart-screen").hidden = true;
+    document.querySelector('.dashboard-v2').inert = false;
     $("timezone-setting-status").textContent = readableError(error);
     button.disabled = false;
   }
+}
+
+async function waitForRestart() {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      const response = await fetch('/api/system/settings/timezone', {
+        cache: 'no-store', signal: AbortSignal.timeout(2500),
+      });
+      if (response.status === 401) {
+        window.location.replace('/login?next=%2Fdashboard.html');
+        return;
+      }
+      if (response.ok && !(await response.json()).restartRequired) {
+        window.location.replace('/dashboard.html');
+        return;
+      }
+    } catch {
+      // Connection failures are expected while PM2 restarts the process.
+    }
+  }
+  $("restart-progress").textContent = "Aplikasi belum siap. Coba muat ulang atau hubungi administrator.";
+  $("restart-reload").hidden = false;
 }
 
 $("restart-timezone").addEventListener("click", confirmTimezoneRestart);
@@ -531,7 +570,7 @@ $("backup-now").addEventListener("click", async () => {
 });
 
 async function refreshDashboard({ includeAudit = false } = {}) {
-  if (refreshInFlight) return;
+  if (refreshInFlight || restartInProgress) return;
   refreshInFlight = true;
   refreshBtn.disabled = true;
   $("refresh-status").textContent = "Memperbarui...";
@@ -657,6 +696,7 @@ setInterval(updateClock, 1000);
 refreshDashboard({ includeAudit: true });
 setInterval(() => refreshDashboard(), 5000);
 setInterval(async () => {
+  if (restartInProgress) return;
   try {
     renderAudit(await getAuditLogs());
   } catch (err) {

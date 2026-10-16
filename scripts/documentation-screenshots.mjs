@@ -7,7 +7,7 @@ import puppeteer from 'puppeteer';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const origin = 'http://documentation.invalid';
 const output = path.join(root, 'docs/screenshots');
-const timestamp = '2026-10-09T09:00:00+07:00';
+const timestamp = '2026-10-16T09:00:00+07:00';
 const users = [30, 7, null, 1].map((total, index) => ({
   id: index + 1, nickname: `Demo ${String.fromCharCode(65 + index)}`,
   usernameMasked: 'demo****', latitude: 0, longitude: 0, auto_login: 1,
@@ -39,6 +39,7 @@ const fixtures = {
   '/api/system/settings/max-concurrent': { value: 1, source: 'runtime' },
   '/api/system/settings/holiday-calendar': { url: '', enabled: false },
   '/api/system/settings/timezone': { value: 'Asia/Jakarta', active: 'Asia/Jakarta', restartRequired: false },
+  '/api/system/settings/operational': { geoRadiusMeters: 50, backupEnabled: true, backupRetentionCount: 4, logRetentionDays: 3 },
   '/api/system/logs': ['success', 'skipped', 'failed'].map((status, index) => ({
     id: index + 1, nickname: users[index].nickname, type: 'masuk', status, created_at: timestamp,
     message: ['Presensi masuk berhasil (data demo)', 'Sudah presensi masuk (data demo)', 'Koneksi terputus (simulasi)'][index],
