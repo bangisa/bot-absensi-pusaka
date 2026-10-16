@@ -1,5 +1,6 @@
 ﻿import {
   getStatus,
+  getApiErrorMessage,
   getHealth,
   getDiagnostics,
   getAuditLogs,
@@ -34,6 +35,8 @@ let refreshInFlight = false;
 let maxConcurrentDirty = false;
 let dashboardTimeZone = null;
 let restartInProgress = false;
+let timezoneRestartWaiting = false;
+let timezoneChangeLocked = false;
 
 function showOperationalSettings(setting) {
   $("geo-radius-input").value = setting.geoRadiusMeters;
@@ -88,25 +91,34 @@ function showCalendarSetting(setting) {
 }
 
 function showTimezoneSetting(setting) {
+  timezoneChangeLocked = Boolean(setting.pendingRestart || setting.retryAfterSeconds > 0);
   $("timezone-input").value = setting.value;
-  $("restart-timezone").hidden = !setting.restartRequired;
+  $("restart-timezone").hidden = !setting.restartRequired || setting.pendingRestart;
+  $("timezone-input").disabled = timezoneChangeLocked;
+  $("save-timezone").disabled = timezoneChangeLocked;
+  $("restart-timezone").disabled = timezoneChangeLocked;
+  $("timezone-restart-banner").hidden = !setting.pendingRestart;
+  if (setting.pendingRestart) {
+    timezoneRestartWaiting = true;
+    $("dashboard-message").hidden = true;
+    $("timezone-restart-detail").textContent = `Aplikasi akan restart ke ${setting.value} setelah pekerjaan selesai. Generator berhenti; ${setting.remainingSchedules ?? 0} jadwal tersisa diproses dengan timezone ${setting.active}, termasuk jadwal yang belum jatuh tempo dan retry.`;
+    startBtn.disabled = true;
+    stopBtn.disabled = true;
+  }
   $("timezone-setting-status").textContent = setting.restartRequired
-    ? `Menunggu restart aplikasi: ${setting.value}. Aktif: ${setting.active}.`
-    : `Aktif: ${setting.active}`;
+    ? `Menunggu pekerjaan selesai dan restart ke ${setting.value}. Aktif: ${setting.active}.`
+    : setting.retryAfterSeconds > 0
+      ? `Aktif: ${setting.active}. Dapat diubah lagi setelah ${new Date(setting.cooldownUntil).toLocaleString("id-ID", { timeZone: setting.active })}.`
+      : `Aktif: ${setting.active}`;
 }
 
 async function confirmTimezoneRestart() {
-  if (!window.confirm("Restart seluruh aplikasi sekarang untuk menerapkan timezone? Dashboard akan terputus sementara. Scheduler setelah restart mengikuti AUTO_START di konfigurasi server.")) return;
+  if (!window.confirm("Hentikan generator dan restart otomatis setelah jadwal serta retry selesai? Timezone lama tetap aktif hingga pekerjaan selesai.")) return;
   const button = $("restart-timezone");
   if (button.disabled) return;
   button.disabled = true;
-  restartInProgress = true;
-  $("restart-screen").hidden = false;
-  document.querySelector('.dashboard-v2').inert = true;
-  $("restart-screen").focus();
   try {
-    await restartForTimezone();
-    await waitForRestart();
+    showTimezoneSetting(await restartForTimezone());
   } catch (error) {
     restartInProgress = false;
     $("restart-screen").hidden = true;
@@ -114,6 +126,15 @@ async function confirmTimezoneRestart() {
     $("timezone-setting-status").textContent = readableError(error);
     button.disabled = false;
   }
+}
+
+function showRestartWaitingScreen() {
+  if (restartInProgress) return;
+  restartInProgress = true;
+  $("restart-screen").hidden = false;
+  document.querySelector('.dashboard-v2').inert = true;
+  $("restart-screen").focus();
+  void waitForRestart();
 }
 
 async function waitForRestart() {
@@ -182,11 +203,7 @@ async function calendarAction(method) {
 }
 
 function readableError(error) {
-  try {
-    return JSON.parse(error.message).error || error.message;
-  } catch {
-    return error.message;
-  }
+  return getApiErrorMessage(error);
 }
 
 $("holiday-settings-form").addEventListener("submit", (event) => {
@@ -205,7 +222,7 @@ $("timezone-settings-form").addEventListener("submit", async (event) => {
   if (
     button.disabled ||
     !window.confirm(
-      "Simpan timezone untuk restart berikutnya? Jadwal dan log lama tidak akan dikonversi.",
+      "Ubah timezone dan restart otomatis setelah seluruh jadwal serta retry selesai? Setelah diterima, timezone tidak dapat diubah lagi selama 24 jam. Generator akan berhenti; timezone lama tetap dipakai sampai pekerjaan selesai. Setelah restart, scheduler mengikuti AUTO_START.",
     )
   )
     return;
@@ -213,11 +230,10 @@ $("timezone-settings-form").addEventListener("submit", async (event) => {
   try {
     const setting = await updateTimezone($("timezone-input").value);
     showTimezoneSetting(setting);
-    if (setting.restartRequired) await confirmTimezoneRestart();
   } catch (error) {
     $("timezone-setting-status").textContent = readableError(error);
   } finally {
-    button.disabled = false;
+    button.disabled = timezoneRestartWaiting || timezoneChangeLocked;
   }
 });
 
@@ -238,6 +254,8 @@ function setLoading(button, loading, label) {
 }
 
 function showMessage(message, type = "info") {
+  if (type === "error") message = getApiErrorMessage({ message });
+  if (!message) { dashboardMessage.hidden = true; return; }
   dashboardMessage.textContent = message;
   dashboardMessage.hidden = false;
   dashboardMessage.className = `notice ${type === "error" ? "notice-error" : "notice-info"}`;
@@ -353,6 +371,7 @@ function renderToday(diagnostics) {
 function renderLifecycle(health, diagnostics) {
   const lifecycle = health.lifecycle ?? {};
   const draining = lifecycle.state === "DRAINING";
+  if (draining && timezoneRestartWaiting) showRestartWaitingScreen();
   const banner = $("lifecycle-banner");
   banner.hidden = !draining;
 
@@ -581,10 +600,11 @@ async function refreshDashboard({ includeAudit = false } = {}) {
       getHealth(),
       getDiagnostics(),
       getMaxConcurrentSetting(),
+      getTimezoneSetting(),
     ];
     if (includeAudit) requests.push(getAuditLogs());
 
-    const [status, health, diagnostics, maxConcurrentSetting, auditLogs] =
+    const [status, health, diagnostics, maxConcurrentSetting, timezoneSetting, auditLogs] =
       await Promise.all(requests);
 
     if (health.timezone) {
@@ -593,6 +613,7 @@ async function refreshDashboard({ includeAudit = false } = {}) {
       updateClock();
     }
     renderScheduler(status, health);
+    showTimezoneSetting(timezoneSetting);
     renderToday(diagnostics);
     renderLifecycle(health, diagnostics);
     renderExecution(health);
@@ -608,7 +629,11 @@ async function refreshDashboard({ includeAudit = false } = {}) {
       : "Terakhir diperbarui; timezone belum tersedia";
   } catch (err) {
     console.error(err);
-    showMessage(err.message || "Gagal memuat dashboard", "error");
+    if (timezoneRestartWaiting && !err.silent) {
+      showRestartWaitingScreen();
+      return;
+    }
+    showMessage(readableError(err), "error");
     $("refresh-status").textContent = "Gagal memperbarui";
   } finally {
     refreshInFlight = false;
@@ -625,7 +650,7 @@ startBtn.addEventListener("click", async () => {
     await refreshDashboard();
   } catch (err) {
     console.error(err);
-    showMessage(err.message || "Scheduler gagal dijalankan", "error");
+    showMessage(readableError(err), "error");
   } finally {
     setLoading(startBtn, false, "Start Scheduler");
   }
@@ -640,7 +665,7 @@ stopBtn.addEventListener("click", async () => {
     await refreshDashboard();
   } catch (err) {
     console.error(err);
-    showMessage(err.message || "Scheduler gagal dihentikan", "error");
+    showMessage(readableError(err), "error");
   } finally {
     setLoading(stopBtn, false, "Stop Scheduler");
   }
@@ -685,7 +710,7 @@ saveMaxConcurrentBtn?.addEventListener("click", async () => {
     await refreshDashboard({ includeAudit: true });
   } catch (err) {
     console.error(err);
-    showMessage(err.message || "Gagal memperbarui MAX_CONCURRENT", "error");
+    showMessage(readableError(err), "error");
   } finally {
     setLoading(saveMaxConcurrentBtn, false, "Simpan");
   }

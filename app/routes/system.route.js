@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { executeBackup, getDatabaseBackupStatus, startDatabaseBackup, stopDatabaseBackup } from "../services/database-backup.service.js";
 import { getOperationalSettings, saveOperationalSettings } from "../services/operational-setting.service.js";
-import { getTimezoneSetting, saveTimezoneSetting, hasUnfinishedSchedules } from "../services/timezone-setting.service.js";
-import { getQueueStatus } from "../services/queue.service.js";
-import { getBrowserStatus } from "../services/browser.service.js";
+import { getTimezoneSetting } from "../services/timezone-setting.service.js";
+import { requestTimezoneRestart } from "../services/timezone-restart.service.js";
+import { recordTimezoneChangeAttempt } from "../services/timezone-protection.service.js";
 import { getHolidayCalendarSetting, testHolidayCalendar, saveHolidayCalendar, resetHolidayCalendar } from "../services/holiday-calendar.service.js";
 import { getZonedDateTime } from "../helpers/time.helper.js";
 import {
@@ -65,39 +65,47 @@ router.post("/backup", async (req, res) => {
 });
 
 router.get("/settings/timezone", (req, res) => res.json(getTimezoneSetting()));
-router.post("/settings/timezone/restart", (req, res) => {
-  if (process.env.pm_id === undefined) {
-    return res.status(409).json({ error: "Restart otomatis hanya tersedia saat aplikasi dikelola PM2. Restart aplikasi secara manual." });
+function protectTimezoneChanges(req, res, next) {
+  try {
+    recordTimezoneChangeAttempt();
+    return next();
+  } catch (error) {
+    if (error.code !== "TIMEZONE_RATE_LIMIT") return next(error);
+    if (error.audit) createAuditLog({ action: "settings.timezone_rate_limited", actor: "admin", target_type: "system_setting", target_id: "timezone", status: "denied" });
+    res.set("Retry-After", String(error.retryAfterSeconds));
+    return res.status(429).json({ error: error.message });
   }
-  const queue = getQueueStatus();
-  const generator = getDailyScheduleGeneratorStatus();
-  const browser = getBrowserStatus();
-  if (!getTimezoneSetting().restartRequired || getLifecycleStatus().state !== "RUNNING" ||
-      getSchedulerStatus().running || generator.running || generator.generationRunning ||
-      queue.running || queue.pending || browser.connected || browser.activeContexts || hasUnfinishedSchedules()) {
-    return res.status(409).json({ error: "Restart timezone memerlukan perubahan tersimpan, scheduler berhenti, dan seluruh pekerjaan/browser selesai." });
+}
+function handleTimezoneProtectionError(error, res) {
+  if (error.code !== "TIMEZONE_CHANGE_COOLDOWN") return false;
+  createAuditLog({ action: "settings.timezone_cooldown_denied", actor: "admin", target_type: "system_setting", target_id: "timezone", status: "denied" });
+  res.set("Retry-After", String(error.retryAfterSeconds));
+  res.status(429).json({ error: error.message });
+  return true;
+}
+router.post("/settings/timezone/restart", protectTimezoneChanges, (req, res) => {
+  const setting = getTimezoneSetting();
+  if (!setting.restartRequired) return res.status(409).json({ error: "Tidak ada perubahan timezone yang perlu diterapkan." });
+  try {
+    const result = requestTimezoneRestart(setting.value);
+    createAuditLog({ action: "system.restart_requested", actor: "admin", target_type: "system", metadata: { reason: "timezone_change" } });
+    return res.status(202).json(result);
+  } catch (error) {
+    if (handleTimezoneProtectionError(error, res)) return;
+    if (["TIMEZONE_BUSY", "TIMEZONE_RESTART_UNAVAILABLE"].includes(error.code)) return res.status(409).json({ error: error.message });
+    throw error;
   }
-  createAuditLog({ action: "system.restart_requested", actor: "admin", target_type: "system", metadata: { reason: "timezone_change" } });
-  // Let the response finish before invoking the existing full-drain signal handler.
-  res.once("finish", () => setImmediate(() => process.emit("SIGTERM")));
-  return res.status(202).json({ success: true });
 });
-router.put("/settings/timezone", (req, res) => {
-  const queue = getQueueStatus();
-  const generator = getDailyScheduleGeneratorStatus();
-  const browser = getBrowserStatus();
-  if (getLifecycleStatus().state !== "RUNNING" || getSchedulerStatus().running ||
-      generator.running || generator.generationRunning || queue.running || queue.pending || browser.connected || browser.activeContexts) {
-    return res.status(409).json({ error: "Hentikan scheduler dan tunggu seluruh pekerjaan/browser selesai." });
-  }
+router.put("/settings/timezone", protectTimezoneChanges, (req, res) => {
   try {
     const previous = getTimezoneSetting();
-    const result = saveTimezoneSetting(req.body?.value);
+    const result = requestTimezoneRestart(req.body?.value);
     createAuditLog({ action: "settings.timezone_changed", actor: "admin", target_type: "system_setting", target_id: "timezone", metadata: { oldValue: previous.value, newValue: result.value } });
-    return res.json(result);
+    return res.status(result.pendingRestart ? 202 : 200).json(result);
   } catch (error) {
-    if (["INVALID_TIMEZONE", "TIMEZONE_BUSY"].includes(error.code)) {
-      return res.status(error.code === "TIMEZONE_BUSY" ? 409 : 400).json({ error: error.message });
+    if (handleTimezoneProtectionError(error, res)) return;
+    if (["INVALID_TIMEZONE", "TIMEZONE_BUSY", "TIMEZONE_RESTART_UNAVAILABLE"].includes(error.code)) {
+      return res.status(error.code === "INVALID_TIMEZONE" ? 400 : 409).json({ error: error.message });
     }
     throw error;
   }

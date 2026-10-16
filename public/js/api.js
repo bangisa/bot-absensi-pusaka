@@ -3,6 +3,14 @@ import { getCsrfToken } from "./auth-ui.js";
 const API_BASE = "/api/system";
 const USER_API = "/api/users";
 
+function getApiErrorMessage(error, fallback = "Permintaan gagal. Silakan coba lagi atau hubungi administrator.") {
+  if (error?.silent) return "";
+  const message = typeof error?.message === "string" ? error.message.trim() : "";
+  if (!message || message.length > 240 || /[<>{}\r\n]|SQLITE_|\b(?:TypeError|SyntaxError|ReferenceError|SELECT|INSERT|UPDATE|DELETE)\b|\bat\s+\S+\s*\(|(?:password|token|cookie|secret)\s*[:=]/i.test(message)) return fallback;
+  if (/failed to fetch|fetch failed|networkerror|load failed/i.test(message)) return "Koneksi ke aplikasi terputus. Tunggu sebentar lalu muat ulang halaman.";
+  return message;
+}
+
 async function request(url, options = {}) {
   const method = String(options.method || "GET").toUpperCase();
   const headers = {
@@ -14,28 +22,35 @@ async function request(url, options = {}) {
     headers["X-CSRF-Token"] = await getCsrfToken();
   }
 
-  const response = await fetch(url, {
-    ...options,
-    method,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(url, { ...options, method, headers });
+  } catch {
+    throw new Error("Koneksi ke aplikasi terputus. Tunggu sebentar lalu muat ulang halaman.");
+  }
 
   if (response.status === 401) {
     const next = encodeURIComponent(window.location.pathname + window.location.search);
     window.location.assign(`/login?next=${next}`);
-    throw new Error("Authentication required");
+    throw Object.assign(new Error("Sesi berakhir. Silakan login kembali."), { silent: true });
   }
 
   if (!response.ok) {
-    const text = await response.text();
-
-    throw new Error(text || "Request failed");
+    if (response.status >= 500) throw new Error(response.status === 503
+      ? "Aplikasi sedang menyiapkan restart. Tunggu hingga aplikasi kembali tersedia."
+      : "Terjadi gangguan pada aplikasi. Silakan coba lagi atau hubungi administrator.");
+    const payload = await response.json().catch(() => ({}));
+    const message = response.status === 403
+      ? "Permintaan ditolak. Muat ulang halaman atau login kembali."
+      : getApiErrorMessage({ message: payload.error });
+    throw new Error(message);
   }
 
   const contentType = response.headers.get("content-type");
 
   if (contentType?.includes("application/json")) {
-    return response.json();
+    try { return await response.json(); }
+    catch { throw new Error("Respons aplikasi tidak dapat dibaca. Silakan muat ulang halaman."); }
   }
 
   return response.text();
@@ -150,6 +165,7 @@ async function backupNow() {
 }
 
 export {
+  getApiErrorMessage,
   backupNow,
   updateUser,
   getHolidayCalendarSetting,

@@ -9,6 +9,12 @@ async function getCsrfToken({ force = false } = {}) {
     cache: "no-store",
   });
 
+  if (response.status === 401) {
+    const next = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.assign(`/login?next=${next}`);
+    throw Object.assign(new Error("Sesi berakhir. Silakan login kembali."), { silent: true });
+  }
+
   if (!response.ok) {
     throw new Error("Gagal memperoleh token keamanan");
   }

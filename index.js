@@ -39,7 +39,8 @@ import {
 
 validateProductionSecurityConfig();
 
-import { initializeRuntimeTimezone } from "./app/services/timezone-setting.service.js";
+import { initializeRuntimeTimezone, hasPendingTimezoneRestart } from "./app/services/timezone-setting.service.js";
+import { initializeTimezoneRestart } from "./app/services/timezone-restart.service.js";
 initializeRuntimeTimezone();
 import { initializeOperationalSettings } from "./app/services/operational-setting.service.js";
 initializeOperationalSettings();
@@ -96,17 +97,18 @@ app.use(csrfProtection);
 // Saat full-drain shutdown berlangsung, tetap izinkan read-only monitoring,
 // tetapi blok pekerjaan eksternal baru (mutation/manual bot trigger).
 app.use((req, res, next) => {
-  if (!isDraining()) {
+  if (!isDraining() && !hasPendingTimezoneRestart()) {
     return next();
   }
 
   const isManualBotTrigger = req.path.startsWith("/api/testing");
   const isMutation = !["GET", "HEAD", "OPTIONS"].includes(req.method);
   const isLogout = req.path === "/auth/logout";
+  const isMonitoringLogin = req.path === "/auth/login" && !isDraining();
 
-  if (!isLogout && (isManualBotTrigger || isMutation)) {
+  if (!isLogout && !isMonitoringLogin && (isManualBotTrigger || isMutation)) {
     return res.status(503).json({
-      error: "Application is draining for shutdown",
+      error: "Aplikasi menunggu pekerjaan selesai sebelum restart. Coba lagi setelah aplikasi tersedia.",
       state: "DRAINING",
     });
   }
@@ -193,6 +195,8 @@ server = app.listen(PORT, "127.0.0.1", async () => {
 
   startLogCleanup();
   startDatabaseBackup();
+
+  if (initializeTimezoneRestart()) return;
 
   const status = getSchedulerStatus();
   if (appConfig.autoStart && !status.running) {

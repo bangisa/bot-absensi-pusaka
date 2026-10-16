@@ -51,11 +51,15 @@ try {
   let mockTimezone=null;
   let mockTables=false;
   let mockUsage=false;
+  let mockRestartPending=false;
   await page.setRequestInterception(true);
   page.on('request', async req => {
     const url=new URL(req.url());
     if(url.origin!==base) return req.abort();
     trace.push({path:url.pathname,method:req.method(),csrf:Boolean(req.headers()['x-csrf-token'])});
+    if(mockRestartPending && url.pathname==='/api/system/settings/timezone' && req.method()==='GET') {
+      return req.respond({status:200,contentType:'application/json',body:JSON.stringify({value:'Asia/Makassar',active:'Asia/Jakarta',restartRequired:true,pendingRestart:true,remainingSchedules:2})});
+    }
     if(mockTables && req.method()==='GET' && ['/api/users','/api/system/logs'].includes(url.pathname)) {
       const body=Array.from({length:21},(_,i)=>url.pathname==='/api/users'
         ? {id:i+1,nickname:`Dummy ${i+1}`,usernameMasked:'123****89',latitude:0,longitude:0,service_days_total:30,service_days_used:mockUsage?([0,1824,1825,1826,99999][i]??1):1,service_days_remaining:29,service_status:'active'}
@@ -450,13 +454,12 @@ try {
       statuses.push((await send('settings/holiday-calendar','PUT',{url:'https://localhost'})).status);
       statuses.push((await send('settings/timezone','PUT',{value:'bad-zone'})).status);
       statuses.push((await send('settings/timezone','PUT',{value:'Asia/Makassar'},false)).status);
-      const saved=await (await send('settings/timezone','PUT',{value:'Asia/Makassar'})).json();
-      statuses.push((await send('scheduler/start','POST',{})).status);
+      const saved=await (await send('settings/timezone','PUT',{value:'Asia/Jakarta'})).json();
       const restored=await (await send('settings/timezone','PUT',{value:'Asia/Jakarta'})).json();
       return {statuses,saved,restored};
     });
-    assert.deepEqual(result.statuses,[403,400,400,400,403,409]);
-    assert.equal(result.saved.restartRequired,true);assert.equal(result.saved.active,'Asia/Jakarta');
+    assert.deepEqual(result.statuses,[403,400,400,400,403]);
+    assert.equal(result.saved.restartRequired,false);assert.equal(result.saved.active,'Asia/Jakarta');
     assert.equal(result.restored.restartRequired,false);
   });
   await test('OPERATIONAL-auth-validation-runtime-persistence',async()=>{
@@ -521,6 +524,24 @@ try {
       await (await page.$('#operational-settings-form')).screenshot({path:path.join(sandbox,`operational-${width}.png`)});
     }
     return 'Authentication/CSRF, 25 invalid payloads, runtime geo/backup/cleanup, audit, persistent settings, UI save and responsive layout';
+  });
+  await test('TIMEZONE-HTTP-rate-limit-and-audit',async()=>{
+    const state=await page.evaluate(async()=>{
+      const {csrfToken}=await(await fetch('/auth/csrf')).json();
+      const results=[];
+      for(let i=0;i<3;i++) {
+        const r=await fetch('/api/system/settings/timezone',{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify({value:'Asia/Jakarta'})});
+        results.push({status:r.status,retry:Number(r.headers.get('Retry-After')),body:await r.json()});
+      }
+      return results;
+    });
+    assert.ok(state.every(r=>r.status===429&&r.retry>0&&r.retry<=900));
+    const probe=spawnSync(process.execPath,['--input-type=module','-e',`
+      import assert from 'node:assert/strict';
+      const {default:db}=await import('./database/db.js');
+      assert.equal(db.prepare("SELECT count(*) AS n FROM audit_logs WHERE action='settings.timezone_rate_limited'").get().n,1);
+      db.prepare("DELETE FROM system_settings WHERE key='timezone_change_attempts'").run();db.close();
+    `],{cwd:sandbox,env,encoding:'utf8'});assert.equal(probe.status,0,probe.stderr);
   });
   await test('OPERATIONAL-boundaries-and-dropdown',async()=>{
     const result=await page.evaluate(async()=>{
@@ -593,24 +614,83 @@ try {
       return [(await fetch('/api/system/settings/timezone/restart',{method:'POST'})).status,
         (await fetch('/api/system/settings/timezone/restart',{method:'POST',headers:{'X-CSRF-Token':csrfToken}})).status];
     });assert.deepEqual(guarded,[403,409]);
-    const dialogs=[];
-    const handler=async d=>{dialogs.push(d.message());if(dialogs.length===1)await d.accept();else await d.dismiss();};
-    page.on('dialog',handler);
+    page.once('dialog',d=>d.dismiss());
     await page.select('#timezone-input','Asia/Makassar');await page.click('#save-timezone');
-    await page.waitForFunction(()=>document.getElementById('timezone-setting-status').textContent.includes('Menunggu restart'));
-    await wait(()=>dialogs.length===2);page.off('dialog',handler);
+    await sleep(100);
     assert.equal(child.exitCode,null);
-    assert.equal(await page.$eval('#restart-timezone',e=>e.hidden),false);
-    await page.reload();await page.waitForFunction(()=>document.getElementById('timezone-input').value==='Asia/Makassar');
+    mockRestartPending=true;
+    await page.reload();await page.waitForFunction(()=>!document.getElementById('timezone-restart-banner').hidden);
+    assert.equal(await page.$eval('#save-timezone',e=>e.disabled),true);
+    assert.equal(await page.$eval('#stop-btn',e=>e.disabled),true);
+    assert.match(await page.$eval('#timezone-restart-detail',e=>e.textContent),/2 jadwal/);
+    for(const width of [320,1440]) {
+      await page.setViewport({width,height:900});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+      await (await page.$('#timezone-restart-banner')).screenshot({path:path.join(sandbox,`timezone-pending-${width}.png`)});
+    }
     assert.match(await page.$eval('#holiday-setting-status',e=>e.textContent),/JSON/);
+    mockRestartPending=false;await page.reload();
+    await page.waitForFunction(()=>!document.getElementById('save-timezone').disabled);
+  });
+  await test('API-error-redaction-and-expired-session',async()=>{
+    const result=await page.evaluate(async()=>{
+      const api=await import('/js/api.js');
+      const native=window.fetch;const errors=[];
+      try {
+        for(const [status,body,type] of [[502,'<html>secret stack</html>','text/html'],[400,JSON.stringify({error:'SQLITE_ERROR: SELECT password FROM users'}),'application/json'],[403,'csrfToken=internal-secret','text/plain'],[409,'<html>proxy detail</html>','text/html']]) {
+          window.fetch=async()=>new Response(body,{status,headers:{'Content-Type':type}});
+          try{await api.getStatus();}catch(e){errors.push(e.message);}
+        }
+        return {errors,silent:api.getApiErrorMessage(Object.assign(new Error('internal'),{silent:true})),html:api.getApiErrorMessage(new Error('<html>secret</html>'))};
+      }finally{window.fetch=native;}
+    });
+    assert.equal(result.errors.length,4);assert.equal(result.silent,'');
+    for(const message of [...result.errors,result.html])assert.doesNotMatch(message,/secret|SQLITE|SELECT|<html>|csrfToken/);
+    const anonymousContext=await browser.createBrowserContext();
+    const anonymous=await anonymousContext.newPage();
+    try {
+      await anonymous.goto(base+'/login');
+      await anonymous.evaluate(async()=>{await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'dashboard-test',password:'DummyOnly123!'})});});
+      await anonymous.goto(base+'/dashboard.html');
+      await anonymous.waitForFunction(()=>document.getElementById('refresh-status').textContent.startsWith('Terakhir diperbarui'));
+      await anonymous.evaluate(()=>import('/js/api.js'));
+      await anonymous.setCookie(...(await page.cookies()).map(c=>({...c,value:'expired-test-session'})));
+      const error=await anonymous.evaluate(async()=>{const api=await import('/js/api.js');try{await api.getStatus();}catch(e){return {message:e.message,silent:e.silent};}});
+      assert.equal(error.silent,true);await anonymous.waitForFunction(()=>location.pathname==='/login');
+    }finally{await anonymousContext.close();}
   });
   for(const file of ['dashboard','api','users','logs','auth-ui']) await test(`SYNTAX-${file}`,()=>{
     assert.equal(spawnSync(process.execPath,['--check',path.join(root,`public/js/${file}.js`)]).status,0);
   });
   await test('TIMEZONE-confirmed-full-drain-and-cold-recovery',async()=>{
+    const dummyId=await page.evaluate(async()=>{
+      const {csrfToken}=await(await fetch('/auth/csrf')).json();
+      const response=await fetch('/api/users',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify({nickname:'Restart dummy',username:'restart-dummy-only',password:'dummy-only',latitude:0,longitude:0,service_days_total:null})});
+      if(!response.ok)throw new Error('Cannot create restart fixture');return(await response.json()).id;
+    });
+    const seed=spawnSync(process.execPath,['--input-type=module','-e',`
+      const {default:db}=await import('./database/db.js');
+      const {getZonedDate}=await import('./app/helpers/time.helper.js');
+      db.prepare("INSERT INTO daily_schedules(user_id,schedule_date,type,scheduled_time,status) VALUES(?,?,'pulang','23:59:59','pending')").run(${dummyId},getZonedDate());db.close();
+    `],{cwd:sandbox,env,encoding:'utf8'});assert.equal(seed.status,0,seed.stderr);
     page.once('dialog',d=>d.accept());
-    const response=page.waitForResponse(r=>r.url().endsWith('/settings/timezone/restart')&&r.request().method()==='POST');
-    await page.click('#restart-timezone');assert.equal((await response).status(),202);
+    const response=page.waitForResponse(r=>r.url().endsWith('/settings/timezone')&&r.request().method()==='PUT');
+    await page.select('#timezone-input','Asia/Makassar');await page.click('#save-timezone');assert.equal((await response).status(),202);
+    await page.waitForSelector('#timezone-restart-banner:not([hidden])');
+    await sleep(1300);assert.equal(child.exitCode,null);
+    const waiting=await page.evaluate(async()=>{
+      const {csrfToken}=await(await fetch('/auth/csrf')).json();
+      return {setting:await(await fetch('/api/system/settings/timezone')).json(),status:await(await fetch('/api/system/status')).json(),
+        blocked:(await fetch('/api/system/scheduler/stop',{method:'POST',headers:{'X-CSRF-Token':csrfToken}})).status};
+    });
+    assert.equal(waiting.setting.active,'Asia/Jakarta');assert.equal(waiting.setting.pendingRestart,true);assert.equal(waiting.setting.remainingSchedules,1);
+    assert.equal(waiting.status.running,true);assert.equal(waiting.status.generator.running,false);assert.equal(waiting.blocked,503);
+    const monitoringLogin=await fetch(base+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'dashboard-test',password:'DummyOnly123!'})});
+    assert.equal(monitoringLogin.status,200);
+    const complete=spawnSync(process.execPath,['--input-type=module','-e',`
+      const {default:db}=await import('./database/db.js');db.prepare("UPDATE daily_schedules SET status='success' WHERE user_id=?").run(${dummyId});db.close();
+    `],{cwd:sandbox,env,encoding:'utf8'});assert.equal(complete.status,0,complete.stderr);
+    await page.waitForSelector('#restart-screen:not([hidden])');
     assert.equal(await page.$eval('#restart-screen',e=>e.hidden),false);
     assert.equal(await page.$eval('.dashboard-v2',e=>e.inert),true);
     for(const width of [320,1440]) {
@@ -632,6 +712,15 @@ try {
     const state=await page.evaluate(async()=>({timezone:await(await fetch('/api/system/settings/timezone')).json(),settings:await(await fetch('/api/system/settings/operational')).json()}));
     assert.equal(state.timezone.active,'Asia/Makassar');assert.equal(state.timezone.restartRequired,false);
     assert.equal(state.settings.geoRadiusMeters,75);assert.equal(state.settings.logRetentionDays,7);
+    assert.ok(state.timezone.retryAfterSeconds>86000);
+    await page.goto(base+'/dashboard.html');
+    await page.waitForFunction(()=>document.getElementById('timezone-setting-status').textContent.includes('Dapat diubah lagi'));
+    assert.equal(await page.$eval('#save-timezone',e=>e.disabled),true);
+    const locked=await page.evaluate(async()=>{
+      const {csrfToken}=await(await fetch('/auth/csrf')).json();
+      const r=await fetch('/api/system/settings/timezone',{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify({value:'Asia/Jayapura'})});
+      return {status:r.status,retry:Number(r.headers.get('Retry-After'))};
+    });assert.equal(locked.status,429);assert.ok(locked.retry>86000);
     assert.deepEqual(browserErrors,[]);
   });
 } finally {
