@@ -28,8 +28,8 @@ const env = { ...process.env, NODE_ENV: 'production', PORT: String(port), AUTO_S
   DB_BACKUP_ENABLED: 'true', DB_BACKUP_RETENTION_COUNT: '4', STRUCTURED_LOG_DIR: 'logs', DB_BACKUP_DIR: 'backups',
   HOLIDAY_CACHE_FILE: 'data/cache.json', HOLIDAY_OVERRIDES_FILE: 'data/overrides.json',
   SESSION_COOKIE_SECURE: 'false', SESSION_SAME_SITE: 'lax', SESSION_COOKIE_NAME: 'dashboard_test_sid',
-  SECURITY_HEADERS_ENABLED: 'true', CSRF_PROTECTION_ENABLED: 'true', REGRESSION_ROOT: sandbox };
-const child = spawn(process.execPath, ['--import', './scripts/regression/hooks.mjs', 'index.js'], { cwd: sandbox, env, stdio: ['ignore','pipe','pipe','ipc'] });
+  SECURITY_HEADERS_ENABLED: 'true', CSRF_PROTECTION_ENABLED: 'true', REGRESSION_ROOT: sandbox, pm_id: 'regression-test' };
+let child = spawn(process.execPath, ['--import', './scripts/regression/hooks.mjs', 'index.js'], { cwd: sandbox, env, stdio: ['ignore','pipe','pipe','ipc'] });
 let output = '';
 child.stdout.on('data', b => { output += b; }); child.stderr.on('data', b => { output += b; });
 const results = [], trace = [], browserErrors = [];
@@ -427,8 +427,97 @@ try {
     assert.equal(result.saved.restartRequired,true);assert.equal(result.saved.active,'Asia/Jakarta');
     assert.equal(result.restored.restartRequired,false);
   });
+  await test('OPERATIONAL-auth-validation-runtime-persistence',async()=>{
+    assert.equal((await fetch(base+'/api/system/settings/operational')).status,401);
+    assert.ok([401,403].includes((await fetch(base+'/api/system/settings/operational',{method:'PUT',headers:{'Content-Type':'application/json'},body:'{}'})).status));
+    await page.goto(base+'/dashboard.html');
+    await page.waitForFunction(()=>!document.getElementById('save-operational').disabled);
+    const result=await page.evaluate(async()=>{
+      const path='/api/system/settings/operational';
+      const original=await (await fetch(path)).json();
+      const {csrfToken}=await (await fetch('/auth/csrf')).json();
+      const send=(body,csrf=true)=>fetch(path,{method:'PUT',headers:{'Content-Type':'application/json',...(csrf?{'X-CSRF-Token':csrfToken}:{})},body:JSON.stringify(body)});
+      const noCsrf=(await send(original,false)).status;
+      const invalid=[];
+      for(const [key,values] of Object.entries({geoRadiusMeters:[-1,10001,1.5,'10',null],backupEnabled:[0,'true',null],backupRetentionCount:[0,101,1.5,'4',null],logRetentionDays:[0,3651,1.5,'3',null]})) {
+        for(const value of values) invalid.push((await send({...original,[key]:value})).status);
+      }
+      invalid.push((await send({...original,extra:true})).status);
+      const disabled={geoRadiusMeters:50,backupEnabled:false,backupRetentionCount:2,logRetentionDays:7};
+      const saved=await (await send(disabled)).json();
+      const health=await (await fetch('/api/system/health')).json();
+      const backupBlocked=(await fetch('/api/system/backup',{method:'POST',headers:{'X-CSRF-Token':csrfToken}})).status;
+      await send({...disabled,backupEnabled:true});
+      const enabled=await (await fetch('/api/system/health')).json();
+      return {original,noCsrf,invalid,saved,health,backupBlocked,enabled};
+    });
+    assert.equal(result.noCsrf,403);assert.ok(result.invalid.every(v=>v===400));
+    assert.deepEqual(result.saved,{geoRadiusMeters:50,backupEnabled:false,backupRetentionCount:2,logRetentionDays:7});
+    assert.equal(result.backupBlocked,409);
+    const probe=spawnSync(process.execPath,['--input-type=module','-e',`
+      import assert from 'node:assert/strict';
+      const settings=await import('./app/services/operational-setting.service.js');
+      settings.initializeOperationalSettings();
+      const {geoConfig}=await import('./app/config/geo.config.js');
+      const {backupConfig}=await import('./app/config/backup.config.js');
+      const {getLogCleanupStatus}=await import('./app/services/log-cleanup.service.js');
+      assert.equal(geoConfig.radiusMeters,50);assert.equal(backupConfig.enabled,true);
+      assert.equal(backupConfig.retentionCount,2);assert.equal(getLogCleanupStatus().retentionDays,7);
+      const {default:db}=await import('./database/db.js');
+      assert.ok(db.prepare("SELECT count(*) AS n FROM audit_logs WHERE action='settings.operational_changed'").get().n>=2);
+      assert.equal(db.pragma('integrity_check',{simple:true}),'ok');db.close();
+    `],{cwd:sandbox,env,encoding:'utf8'});
+    assert.equal(probe.status,0,probe.stderr);
+    await page.reload();await page.waitForFunction(()=>document.getElementById('geo-radius-input').value==='50');
+    assert.equal(await page.$eval('#log-retention-input',e=>e.value),'7');
+    page.once('dialog',d=>d.accept());
+    await page.$eval('#geo-radius-input',e=>{e.value='75';});
+    await page.click('#save-operational');
+    await page.waitForFunction(()=>document.getElementById('operational-setting-status').textContent.startsWith('Tersimpan'));
+    for(const width of [320,390,1440]) {
+      await page.setViewport({width,height:900});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+      await (await page.$('#operational-settings-form')).screenshot({path:path.join(sandbox,`operational-${width}.png`)});
+    }
+    return 'Authentication/CSRF, 19 invalid payloads, runtime geo/backup/cleanup, audit, persistent settings, UI save and responsive layout';
+  });
+  await test('TIMEZONE-restart-confirmation-and-guards',async()=>{
+    assert.ok([401,403].includes((await fetch(base+'/api/system/settings/timezone/restart',{method:'POST'})).status));
+    const guarded=await page.evaluate(async()=>{
+      const {csrfToken}=await (await fetch('/auth/csrf')).json();
+      return [(await fetch('/api/system/settings/timezone/restart',{method:'POST'})).status,
+        (await fetch('/api/system/settings/timezone/restart',{method:'POST',headers:{'X-CSRF-Token':csrfToken}})).status];
+    });assert.deepEqual(guarded,[403,409]);
+    const dialogs=[];
+    const handler=async d=>{dialogs.push(d.message());if(dialogs.length===1)await d.accept();else await d.dismiss();};
+    page.on('dialog',handler);
+    await page.select('#timezone-input','Asia/Makassar');await page.click('#save-timezone');
+    await page.waitForFunction(()=>document.getElementById('timezone-setting-status').textContent.includes('Menunggu restart'));
+    await wait(()=>dialogs.length===2);page.off('dialog',handler);
+    assert.equal(child.exitCode,null);
+    assert.equal(await page.$eval('#restart-timezone',e=>e.hidden),false);
+    await page.reload();await page.waitForFunction(()=>document.getElementById('timezone-input').value==='Asia/Makassar');
+    assert.match(await page.$eval('#holiday-setting-status',e=>e.textContent),/JSON/);
+  });
   for(const file of ['dashboard','api','users','logs','auth-ui']) await test(`SYNTAX-${file}`,()=>{
     assert.equal(spawnSync(process.execPath,['--check',path.join(root,`public/js/${file}.js`)]).status,0);
+  });
+  await test('TIMEZONE-confirmed-full-drain-and-cold-recovery',async()=>{
+    page.once('dialog',d=>d.accept());
+    const response=page.waitForResponse(r=>r.url().endsWith('/settings/timezone/restart')&&r.request().method()==='POST');
+    await page.click('#restart-timezone');assert.equal((await response).status(),202);
+    await wait(()=>child.exitCode!==null);assert.equal(child.exitCode,0);
+    assert.match(output,/shutdown.completed/);
+    output='';
+    child=spawn(process.execPath,['--import','./scripts/regression/hooks.mjs','index.js'],{cwd:sandbox,env,stdio:['ignore','pipe','pipe','ipc']});
+    child.stdout.on('data',b=>{output+=b;});child.stderr.on('data',b=>{output+=b;});
+    await wait(()=>output.includes('Server running'));
+    await page.goto(base+'/login');
+    await page.evaluate(async()=>{await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'dashboard-test',password:'DummyOnly123!'})});});
+    const state=await page.evaluate(async()=>({timezone:await(await fetch('/api/system/settings/timezone')).json(),settings:await(await fetch('/api/system/settings/operational')).json()}));
+    assert.equal(state.timezone.active,'Asia/Makassar');assert.equal(state.timezone.restartRequired,false);
+    assert.equal(state.settings.geoRadiusMeters,75);assert.equal(state.settings.logRetentionDays,7);
+    assert.deepEqual(browserErrors,[]);
   });
 } finally {
   await browser?.close();

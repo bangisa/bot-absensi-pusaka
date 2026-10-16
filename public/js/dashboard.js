@@ -11,6 +11,9 @@
   changeHolidayCalendar,
   getTimezoneSetting,
   updateTimezone,
+  restartForTimezone,
+  getOperationalSettings,
+  updateOperationalSettings,
   backupNow,
 } from "./api.js";
 
@@ -31,19 +34,73 @@ let refreshInFlight = false;
 let maxConcurrentDirty = false;
 let dashboardTimeZone = null;
 
+function showOperationalSettings(setting) {
+  $("geo-radius-input").value = setting.geoRadiusMeters;
+  $("backup-enabled-input").checked = setting.backupEnabled;
+  $("backup-retention-input").value = setting.backupRetentionCount;
+  $("log-retention-input").value = setting.logRetentionDays;
+}
+
+getOperationalSettings().then((setting) => {
+  showOperationalSettings(setting);
+  $("save-operational").disabled = false;
+  $("operational-setting-status").textContent = "";
+}).catch((error) => {
+  $("operational-setting-status").textContent = readableError(error);
+});
+
+$("operational-settings-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("save-operational");
+  if (button.disabled) return;
+  if (!window.confirm("Simpan pengaturan? Retensi yang lebih pendek akan menghapus data lama pada proses cleanup atau backup berikutnya.")) return;
+  button.disabled = true;
+  try {
+    showOperationalSettings(await updateOperationalSettings({
+      geoRadiusMeters: $("geo-radius-input").valueAsNumber,
+      backupEnabled: $("backup-enabled-input").checked,
+      backupRetentionCount: $("backup-retention-input").valueAsNumber,
+      logRetentionDays: $("log-retention-input").valueAsNumber,
+    }));
+    $("operational-setting-status").textContent = "Tersimpan. Berlaku untuk proses berikutnya, tanpa restart.";
+    await refreshDashboard();
+  } catch (error) {
+    $("operational-setting-status").textContent = readableError(error);
+  } finally {
+    button.disabled = false;
+  }
+});
+
 function showCalendarSetting(setting) {
   $("holiday-calendar-url").value = setting.url;
   $("holiday-setting-status").textContent = setting.enabled
     ? `Tersimpan: ${setting.year}, ${setting.count} tanggal (termasuk cuti bersama).`
-    : "Menggunakan provider dari .env.";
+    : "Gunakan tautan data JSON, misalnya https://domain/api/holidays/2026.json.";
 }
 
 function showTimezoneSetting(setting) {
   $("timezone-input").value = setting.value;
+  $("restart-timezone").hidden = !setting.restartRequired;
   $("timezone-setting-status").textContent = setting.restartRequired
     ? `Menunggu restart aplikasi: ${setting.value}. Aktif: ${setting.active}.`
     : `Aktif: ${setting.active}`;
 }
+
+async function confirmTimezoneRestart() {
+  if (!window.confirm("Restart seluruh aplikasi sekarang untuk menerapkan timezone? Dashboard akan terputus sementara. Scheduler setelah restart mengikuti AUTO_START di konfigurasi server.")) return;
+  const button = $("restart-timezone");
+  if (button.disabled) return;
+  button.disabled = true;
+  try {
+    await restartForTimezone();
+    $("timezone-setting-status").textContent = "Restart diminta. Muat ulang halaman setelah beberapa detik; login kembali jika diperlukan.";
+  } catch (error) {
+    $("timezone-setting-status").textContent = readableError(error);
+    button.disabled = false;
+  }
+}
+
+$("restart-timezone").addEventListener("click", confirmTimezoneRestart);
 
 async function calendarAction(method) {
   const buttons = [
@@ -115,7 +172,9 @@ $("timezone-settings-form").addEventListener("submit", async (event) => {
     return;
   button.disabled = true;
   try {
-    showTimezoneSetting(await updateTimezone($("timezone-input").value));
+    const setting = await updateTimezone($("timezone-input").value);
+    showTimezoneSetting(setting);
+    if (setting.restartRequired) await confirmTimezoneRestart();
   } catch (error) {
     $("timezone-setting-status").textContent = readableError(error);
   } finally {

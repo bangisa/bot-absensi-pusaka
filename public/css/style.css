@@ -438,6 +438,21 @@ select {
   outline: none;
 }
 
+#operational-settings-form label[for="backup-enabled-input"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#operational-settings-form input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  accent-color: var(--blue-strong);
+}
+
 input::placeholder {
   color: #6b7280;
 }

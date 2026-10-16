@@ -110,6 +110,21 @@ async function updateTimezone(value) {
   });
 }
 
+async function restartForTimezone() {
+  return request(`${API_BASE}/settings/timezone/restart`, { method: "POST" });
+}
+
+async function getOperationalSettings() {
+  return request(`${API_BASE}/settings/operational`);
+}
+
+async function updateOperationalSettings(value) {
+  return request(`${API_BASE}/settings/operational`, {
+    method: "PUT",
+    body: JSON.stringify(value),
+  });
+}
+
 async function createUser(data) {
   return request(USER_API, {
     method: "POST",
@@ -141,6 +156,9 @@ export {
   changeHolidayCalendar,
   getTimezoneSetting,
   updateTimezone,
+  restartForTimezone,
+  getOperationalSettings,
+  updateOperationalSettings,
   getStatus,
   getHealth,
   getDiagnostics,

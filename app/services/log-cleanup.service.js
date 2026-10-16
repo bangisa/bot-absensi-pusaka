@@ -5,8 +5,8 @@ import { nowLocalISO } from "../helpers/time.helper.js";
 import { cleanupStructuredLogs, logger } from "../helpers/index.js";
 import { env } from "../config/env.config.js";
 import { timeConfig } from "../config/time.config.js";
+import { getOperationalSettings } from "./operational-setting.service.js";
 
-const LOG_RETENTION_DAYS = 3;
 const AUDIT_RETENTION_DAYS = env.AUDIT_LOG_RETENTION_DAYS;
 const STRUCTURED_RETENTION_DAYS = env.STRUCTURED_LOG_RETENTION_DAYS;
 
@@ -17,6 +17,7 @@ let lastDeleted = 0;
 let lastError = null;
 
 function runLogCleanup() {
+  const LOG_RETENTION_DAYS = getOperationalSettings().logRetentionDays;
   lastRunAt = nowLocalISO();
 
   try {
@@ -98,7 +99,7 @@ function getLogCleanupStatus() {
   return {
     running: isCleanupRunning,
     hasJob: cleanupJob !== null,
-    retentionDays: LOG_RETENTION_DAYS,
+    retentionDays: getOperationalSettings().logRetentionDays,
     lastRunAt,
     lastDeleted,
     lastError,

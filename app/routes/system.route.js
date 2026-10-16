@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { executeBackup, getDatabaseBackupStatus } from "../services/database-backup.service.js";
-import { getTimezoneSetting, saveTimezoneSetting } from "../services/timezone-setting.service.js";
+import { executeBackup, getDatabaseBackupStatus, startDatabaseBackup, stopDatabaseBackup } from "../services/database-backup.service.js";
+import { getOperationalSettings, saveOperationalSettings } from "../services/operational-setting.service.js";
+import { getTimezoneSetting, saveTimezoneSetting, hasUnfinishedSchedules } from "../services/timezone-setting.service.js";
 import { getQueueStatus } from "../services/queue.service.js";
 import { getBrowserStatus } from "../services/browser.service.js";
 import { getHolidayCalendarSetting, testHolidayCalendar, saveHolidayCalendar, resetHolidayCalendar } from "../services/holiday-calendar.service.js";
@@ -27,6 +28,27 @@ import {
 
 const router = Router();
 
+router.get("/settings/operational", (req, res) => res.json(getOperationalSettings()));
+router.put("/settings/operational", (req, res) => {
+  if (getLifecycleStatus().state !== "RUNNING" || getDatabaseBackupStatus().backupRunning) {
+    return res.status(409).json({ error: "Tunggu backup atau penghentian aplikasi selesai." });
+  }
+  const previous = getOperationalSettings();
+  let result;
+  try {
+    result = saveOperationalSettings(req.body);
+  } catch (error) {
+    if (error.code === "INVALID_OPERATIONAL_SETTING") return res.status(400).json({ error: error.message });
+    throw error;
+  }
+  if (result.backupEnabled !== previous.backupEnabled) {
+    if (result.backupEnabled) startDatabaseBackup();
+    else stopDatabaseBackup();
+  }
+  createAuditLog({ action: "settings.operational_changed", actor: "admin", target_type: "system_setting", target_id: "operational_settings", metadata: { previous, current: result } });
+  return res.json(result);
+});
+
 router.post("/backup", async (req, res) => {
   const status = getDatabaseBackupStatus();
   if (getLifecycleStatus().state !== "RUNNING" || status.backupRunning) {
@@ -43,6 +65,23 @@ router.post("/backup", async (req, res) => {
 });
 
 router.get("/settings/timezone", (req, res) => res.json(getTimezoneSetting()));
+router.post("/settings/timezone/restart", (req, res) => {
+  if (process.env.pm_id === undefined) {
+    return res.status(409).json({ error: "Restart otomatis hanya tersedia saat aplikasi dikelola PM2. Restart aplikasi secara manual." });
+  }
+  const queue = getQueueStatus();
+  const generator = getDailyScheduleGeneratorStatus();
+  const browser = getBrowserStatus();
+  if (!getTimezoneSetting().restartRequired || getLifecycleStatus().state !== "RUNNING" ||
+      getSchedulerStatus().running || generator.running || generator.generationRunning ||
+      queue.running || queue.pending || browser.connected || browser.activeContexts || hasUnfinishedSchedules()) {
+    return res.status(409).json({ error: "Restart timezone memerlukan perubahan tersimpan, scheduler berhenti, dan seluruh pekerjaan/browser selesai." });
+  }
+  createAuditLog({ action: "system.restart_requested", actor: "admin", target_type: "system", metadata: { reason: "timezone_change" } });
+  // Let the response finish before invoking the existing full-drain signal handler.
+  res.once("finish", () => setImmediate(() => process.emit("SIGTERM")));
+  return res.status(202).json({ success: true });
+});
 router.put("/settings/timezone", (req, res) => {
   const queue = getQueueStatus();
   const generator = getDailyScheduleGeneratorStatus();
