@@ -366,9 +366,6 @@
             <label for="geo-radius-input">Radius Geolokasi (meter)</label>
             <input id="geo-radius-input" type="number" min="0" max="200" step="1" aria-describedby="geo-radius-limit" required />
             <small id="geo-radius-limit">0-200 meter</small>
-            <label for="backup-enabled-input">
-              <input id="backup-enabled-input" type="checkbox" /> Backup Otomatis Aktif
-            </label>
             <label for="backup-retention-input">Jumlah Backup Disimpan</label>
             <input id="backup-retention-input" type="number" min="1" max="8" step="1" aria-describedby="backup-retention-limit" required />
             <small id="backup-retention-limit">1-8 file backup</small>
@@ -377,6 +374,9 @@
               <option value="3">3 Hari</option>
               <option value="7">7 Hari</option>
             </select>
+            <label for="backup-enabled-input">
+              <input id="backup-enabled-input" type="checkbox" /> Backup Otomatis Aktif
+            </label>
             <div class="setting-actions">
               <button id="save-operational" type="submit" class="btn primary" disabled>Simpan</button>
             </div>

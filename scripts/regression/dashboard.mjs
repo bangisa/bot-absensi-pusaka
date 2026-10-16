@@ -477,6 +477,15 @@ try {
     for(const width of [320,390,1440]) {
       await page.setViewport({width,height:900});
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+      const checkbox=await page.evaluate(()=>{
+        const form=document.getElementById('operational-settings-form');
+        const labels=[...form.querySelectorAll(':scope > label')];
+        const label=labels.at(-1),select=document.getElementById('log-retention-input'),button=document.getElementById('save-operational');
+        return {last:label.htmlFor,gap:label.getBoundingClientRect().top-select.getBoundingClientRect().bottom,
+          buttonGap:button.getBoundingClientRect().top-label.getBoundingClientRect().bottom,
+          overflow:form.scrollWidth>form.clientWidth};
+      });
+      assert.equal(checkbox.last,'backup-enabled-input');assert.ok(checkbox.gap>=10);assert.ok(checkbox.buttonGap>=10);assert.equal(checkbox.overflow,false);
       await (await page.$('#operational-settings-form')).screenshot({path:path.join(sandbox,`operational-${width}.png`)});
     }
     return 'Authentication/CSRF, 25 invalid payloads, runtime geo/backup/cleanup, audit, persistent settings, UI save and responsive layout';
