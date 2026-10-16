@@ -75,20 +75,13 @@ select {
   animation: entry-progress 1.2s ease-in-out infinite;
 }
 
-.entry-link {
-  padding: 8px;
-  color: #60a5fa;
-  font-size: 13px;
-  text-decoration: none;
-}
-
-.entry-link:hover {
-  text-decoration: underline;
-}
-
 @keyframes entry-progress {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(325%); }
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(325%);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -560,7 +553,6 @@ select:focus {
     align-items: stretch;
     flex-direction: column;
   }
-
 }
 
 @media (max-width: 560px) {
