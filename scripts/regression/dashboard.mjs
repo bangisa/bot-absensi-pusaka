@@ -439,7 +439,7 @@ try {
       const send=(body,csrf=true)=>fetch(path,{method:'PUT',headers:{'Content-Type':'application/json',...(csrf?{'X-CSRF-Token':csrfToken}:{})},body:JSON.stringify(body)});
       const noCsrf=(await send(original,false)).status;
       const invalid=[];
-      for(const [key,values] of Object.entries({geoRadiusMeters:[-1,10001,1.5,'10',null],backupEnabled:[0,'true',null],backupRetentionCount:[0,101,1.5,'4',null],logRetentionDays:[0,3651,1.5,'3',null]})) {
+      for(const [key,values] of Object.entries({geoRadiusMeters:[-1,201,10001,1.5,'10',null],backupEnabled:[0,'true',null],backupRetentionCount:[0,9,101,1.5,'4',null],logRetentionDays:[0,1,2,4,8,3651,1.5,'3',null]})) {
         for(const value of values) invalid.push((await send({...original,[key]:value})).status);
       }
       invalid.push((await send({...original,extra:true})).status);
@@ -479,7 +479,71 @@ try {
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
       await (await page.$('#operational-settings-form')).screenshot({path:path.join(sandbox,`operational-${width}.png`)});
     }
-    return 'Authentication/CSRF, 19 invalid payloads, runtime geo/backup/cleanup, audit, persistent settings, UI save and responsive layout';
+    return 'Authentication/CSRF, 25 invalid payloads, runtime geo/backup/cleanup, audit, persistent settings, UI save and responsive layout';
+  });
+  await test('OPERATIONAL-boundaries-and-dropdown',async()=>{
+    const result=await page.evaluate(async()=>{
+      const {csrfToken}=await (await fetch('/auth/csrf')).json();
+      const path='/api/system/settings/operational';
+      const original=await (await fetch(path)).json();
+      const statuses=[];
+      for(const [geoRadiusMeters,backupRetentionCount,logRetentionDays] of [[0,1,3],[200,8,7]]) {
+        const r=await fetch(path,{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify({...original,geoRadiusMeters,backupRetentionCount,logRetentionDays})});
+        statuses.push(r.status);
+      }
+      await fetch(path,{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify(original)});
+      const radius=document.getElementById('geo-radius-input'),backup=document.getElementById('backup-retention-input'),retention=document.getElementById('log-retention-input');
+      return {statuses,radius:[radius.min,radius.max],backup:[backup.min,backup.max],tag:retention.tagName,options:[...retention.options].map(o=>[o.value,o.textContent]),label:document.querySelector('label[for="log-retention-input"]').textContent};
+    });
+    assert.deepEqual(result.statuses,[200,200]);assert.deepEqual(result.radius,['0','200']);assert.deepEqual(result.backup,['1','8']);
+    assert.equal(result.tag,'SELECT');assert.deepEqual(result.options,[['3','3 Hari'],['7','7 Hari']]);assert.equal(result.label,'Retensi Log Presensi');
+  });
+  await test('OPERATIONAL-legacy-and-env-safety',async()=>{
+    const probe=spawnSync(process.execPath,['--input-type=module','-e',`
+      import assert from 'node:assert/strict';
+      const {default:db}=await import('./database/db.js');
+      const {initializeOperationalSettings,getOperationalSettings}=await import('./app/services/operational-setting.service.js');
+      const {setSystemSetting}=await import('./app/models/system-setting.model.js');
+      const {geoConfig}=await import('./app/config/geo.config.js');
+      const {backupConfig}=await import('./app/config/backup.config.js');
+      const rollback=new Error('TEST_ROLLBACK');
+      try { db.transaction(()=>{
+        db.prepare("DELETE FROM system_settings WHERE key='operational_settings'").run();
+        initializeOperationalSettings();
+        assert.equal(geoConfig.radiusMeters,200);assert.equal(backupConfig.retentionCount,8);
+        setSystemSetting('operational_settings',JSON.stringify({geoRadiusMeters:500,backupEnabled:true,backupRetentionCount:50,logRetentionDays:14}));
+        initializeOperationalSettings();
+        assert.deepEqual(getOperationalSettings(),{geoRadiusMeters:200,backupEnabled:true,backupRetentionCount:8,logRetentionDays:14});
+        throw rollback;
+      })(); } catch(e) {if(e!==rollback)throw e;}
+      assert.equal(db.pragma('integrity_check',{simple:true}),'ok');db.close();
+    `],{cwd:sandbox,env:{...env,GEO_RADIUS_METERS:'500',DB_BACKUP_RETENTION_COUNT:'50'},encoding:'utf8'});
+    assert.equal(probe.status,0,probe.stderr);
+  });
+  await test('DASHBOARD-two-column-card-layout',async()=>{
+    for(const width of [320,390,600,760,900,1080,1280,1440]) {
+      await page.setViewport({width,height:900});
+      const state=await page.evaluate(()=>({grids:[...document.querySelectorAll('.dashboard-grid')].map(e=>({columns:getComputedStyle(e).gridTemplateColumns.split(' ').length,count:e.children.length})),summary:getComputedStyle(document.querySelector('.summary-grid')).gridTemplateColumns.split(' ').length,overflow:document.documentElement.scrollWidth>innerWidth+1}));
+      assert.ok(state.grids.every(g=>g.columns===(width<=760?1:2)));
+      assert.ok(state.grids.some(g=>g.count===4));
+      assert.equal(state.summary,width<=460?1:width<=760?2:width<=1080?3:6);assert.equal(state.overflow,false);
+      const cards=await page.$$eval('.summary-grid > *',els=>els.map(e=>({top:e.getBoundingClientRect().top,left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right,overflow:e.scrollWidth>e.clientWidth})));
+      assert.equal(cards.length,6);assert.ok(cards.every(c=>!c.overflow));
+      if(width>1080)assert.ok(cards.every(c=>Math.abs(c.top-cards[0].top)<1));
+      await page.screenshot({path:path.join(sandbox,`dashboard-columns-${width}.png`),fullPage:true});
+    }
+  });
+  await test('RESTART-waiting-poll-and-timeout',async()=>{
+    const source=fs.readFileSync(path.join(root,'public/js/dashboard.js'),'utf8');
+    const fn=source.slice(source.indexOf('async function waitForRestart()'),source.indexOf('$("restart-timezone").addEventListener'));
+    for(const scenario of ['recover','login','timeout']) {
+      let calls=0;const redirects=[];const elements={'restart-progress':{textContent:''},'restart-reload':{hidden:true}};
+      const fetchMock=async()=>{calls++;if(scenario==='recover'&&calls===1)throw new Error('Restart connection refused');return {status:scenario==='login'?401:200,ok:scenario!=='login',json:async()=>({restartRequired:scenario!=='recover'||calls<3})};};
+      await new Function('fetch','window','$','setTimeout','AbortSignal',fn+';return waitForRestart();')(fetchMock,{location:{replace:url=>redirects.push(url)}},id=>elements[id],resolve=>resolve(),AbortSignal);
+      if(scenario==='recover'){assert.deepEqual(redirects,['/dashboard.html']);assert.equal(calls,3);}
+      if(scenario==='login')assert.deepEqual(redirects,['/login?next=%2Fdashboard.html']);
+      if(scenario==='timeout'){assert.equal(calls,80);assert.equal(elements['restart-reload'].hidden,false);assert.match(elements['restart-progress'].textContent,/belum siap/);}
+    }
   });
   await test('TIMEZONE-restart-confirmation-and-guards',async()=>{
     assert.ok([401,403].includes((await fetch(base+'/api/system/settings/timezone/restart',{method:'POST'})).status));
@@ -506,13 +570,23 @@ try {
     page.once('dialog',d=>d.accept());
     const response=page.waitForResponse(r=>r.url().endsWith('/settings/timezone/restart')&&r.request().method()==='POST');
     await page.click('#restart-timezone');assert.equal((await response).status(),202);
+    assert.equal(await page.$eval('#restart-screen',e=>e.hidden),false);
+    assert.equal(await page.$eval('.dashboard-v2',e=>e.inert),true);
+    for(const width of [320,1440]) {
+      await page.setViewport({width,height:900});
+      const rect=await page.$eval('#restart-screen',e=>({width:e.getBoundingClientRect().width,height:e.getBoundingClientRect().height,left:e.getBoundingClientRect().left,contentWidth:document.querySelector('.dashboard-v2').getBoundingClientRect().right,overflow:e.scrollWidth>e.clientWidth}));
+      // A stable root scrollbar gutter may reserve space beside the fixed overlay.
+      assert.ok(rect.width>=rect.contentWidth && rect.width<=width);
+      assert.equal(rect.left,0);assert.equal(rect.height,900);assert.equal(rect.overflow,false);
+      await page.screenshot({path:path.join(sandbox,`restart-screen-${width}.png`)});
+    }
     await wait(()=>child.exitCode!==null);assert.equal(child.exitCode,0);
     assert.match(output,/shutdown.completed/);
     output='';
     child=spawn(process.execPath,['--import','./scripts/regression/hooks.mjs','index.js'],{cwd:sandbox,env,stdio:['ignore','pipe','pipe','ipc']});
     child.stdout.on('data',b=>{output+=b;});child.stderr.on('data',b=>{output+=b;});
     await wait(()=>output.includes('Server running'));
-    await page.goto(base+'/login');
+    await page.waitForFunction(()=>location.pathname==='/login');
     await page.evaluate(async()=>{await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'dashboard-test',password:'DummyOnly123!'})});});
     const state=await page.evaluate(async()=>({timezone:await(await fetch('/api/system/settings/timezone')).json(),settings:await(await fetch('/api/system/settings/operational')).json()}));
     assert.equal(state.timezone.active,'Asia/Makassar');assert.equal(state.timezone.restartRequired,false);

@@ -987,7 +987,7 @@ html:has(.dashboard-v2, .workspace-page) {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -1254,7 +1254,7 @@ html:has(.dashboard-v2, .workspace-page) {
 
 @media (max-width: 1080px) {
   .summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .dashboard-grid.three-column {
