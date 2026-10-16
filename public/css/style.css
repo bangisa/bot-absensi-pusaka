@@ -735,6 +735,10 @@ select:focus {
 }
 
 /* Dashboard V2 */
+html:has(.dashboard-v2, .workspace-page) {
+  scrollbar-gutter: stable;
+}
+
 .dashboard-v2,
 .workspace-page {
   width: min(1280px, calc(100% - 32px));
