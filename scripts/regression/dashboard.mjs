@@ -76,7 +76,7 @@ try {
     }
     if(mockTables && req.method()==='GET' && ['/api/users','/api/system/logs'].includes(url.pathname)) {
       const body=Array.from({length:21},(_,i)=>url.pathname==='/api/users'
-        ? {id:i+1,nickname:`Dummy ${i+1}`,usernameMasked:'123****89',latitude:0,longitude:0,service_days_total:30,service_days_used:mockUsage?([0,1824,1825,1826,99999][i]??1):1,service_days_remaining:29,service_status:'active'}
+        ? {id:i+1,nickname:`Dummy ${i+1}`,usernameMasked:'123****89',latitude:0,longitude:0,service_days_total:30,service_days_used:mockUsage?([0,14599,14600,14601,99999][i]??1):1,service_days_remaining:29,service_status:'active'}
         : {id:i+1,nickname:`Dummy ${i+1}`,type:i%2?'pulang':'masuk',status:i%2?'failed':'success',message:'Dummy result',created_at:'2026-10-15T07:30:00+07:00'});
       return req.respond({status:200,contentType:'application/json',body:JSON.stringify(body)});
     }
@@ -373,15 +373,15 @@ try {
       await page.goto(base+'/users.html');
       await page.waitForFunction(()=>document.querySelectorAll('#users-list tr').length===10);
       const values=await page.$$eval('#users-list tr',rows=>rows.slice(0,5).map(row=>row.cells[3].textContent));
-      assert.deepEqual(values,['0','1824','1825','>1.825','>1.825']);
+      assert.deepEqual(values,['0','14599','14600','>14.600','>14.600']);
       const raw=await page.evaluate(async()=>(await(await fetch('/api/users')).json()).slice(0,5).map(u=>u.service_days_used));
-      assert.deepEqual(raw,[0,1824,1825,1826,99999]);
+      assert.deepEqual(raw,[0,14599,14600,14601,99999]);
       for(const width of [320,1440]) {
         await page.setViewport({width,height:900});
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
         await page.screenshot({path:path.join(sandbox,`users-usage-${width}.png`),fullPage:true});
       }
-      return '1825 unchanged; 1826 and 99999 capped for display only; raw API values unchanged';
+      return '14600 unchanged; 14601 and 99999 capped for display only; raw API values unchanged';
     } finally {mockTables=false;mockUsage=false;}
   });
   await test('BACKUP-weekly-interval-label',async()=>{

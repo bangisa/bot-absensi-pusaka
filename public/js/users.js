@@ -85,7 +85,7 @@ function createUserRow(user) {
   nicknameCell.append(nickname, autoLogin);
   row.appendChild(nicknameCell);
   appendCell(row, user.service_days_total === null ? "Tak Terbatas" : `${user.service_days_total} Hari`);
-  appendCell(row, user.service_days_used > 1825 ? ">1.825" : user.service_days_used);
+  appendCell(row, user.service_days_used > 14600 ? ">14.600" : user.service_days_used);
   appendCell(row, user.service_days_remaining === null ? "Tak Terbatas" : user.service_days_remaining);
   appendCell(row, user.service_status === "completed" ? "Habis" : "Aktif");
 
