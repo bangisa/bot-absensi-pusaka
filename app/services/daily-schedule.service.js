@@ -167,15 +167,6 @@ async function generateDailySchedules(date = new Date(), { shouldContinue = () =
   const cancelled = () => ({ schedule_date: scheduleDate, generated: 0, skipped: 0, cancelled: true });
   if (!shouldContinue()) return cancelled();
 
-  if (dayName === "sunday") {
-    return {
-      schedule_date: scheduleDate,
-      generated: 0,
-      skipped: 0,
-      message: "Hari Minggu, jadwal tidak dibuat",
-    };
-  }
-
   const holiday = await checkNationalHoliday(scheduleDate);
 
   // Stop/shutdown may arrive while the holiday provider is still responding.
@@ -185,6 +176,20 @@ async function generateDailySchedules(date = new Date(), { shouldContinue = () =
     console.log(
       `[HOLIDAY] Gagal cek libur nasional ${scheduleDate}: ${holiday.error}`,
     );
+  }
+
+  if (dayName === "sunday") {
+    return {
+      schedule_date: scheduleDate,
+      generated: 0,
+      skipped: 0,
+      holiday: {
+        ...holiday,
+        isHoliday: true,
+        name: holiday.name ? `Hari Minggu; ${holiday.name}` : "Hari Minggu",
+      },
+      message: "Hari Minggu, jadwal tidak dibuat",
+    };
   }
 
   if (holiday.isHoliday) {
