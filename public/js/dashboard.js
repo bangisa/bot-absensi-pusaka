@@ -16,6 +16,8 @@
   getOperationalSettings,
   updateOperationalSettings,
   backupNow,
+  getScheduleRanges,
+  updateScheduleRanges,
 } from "./api.js";
 
 const $ = (id) => document.getElementById(id);
@@ -41,6 +43,59 @@ let timezoneDirty = false;
 let timezoneSaving = false;
 
 $("timezone-input").addEventListener("change", () => { timezoneDirty = true; });
+
+const scheduleRangeKeys = ["masuk", "pulang", "friday", "saturday"];
+const scheduleRangeFields = $("schedule-ranges-fields");
+let scheduleRangesSaving = false;
+
+function showScheduleRanges(ranges) {
+  for (const key of scheduleRangeKeys) {
+    for (const boundary of ["start", "end"]) {
+      $(`range-${key}-${boundary}`).value = ranges[key][boundary];
+    }
+  }
+}
+
+getScheduleRanges().then(ranges => {
+  showScheduleRanges(ranges);
+  scheduleRangeFields.disabled = false;
+  $("schedule-ranges-status").textContent = "";
+}).catch(error => {
+  $("schedule-ranges-status").textContent = readableError(error);
+});
+
+$("schedule-ranges-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (scheduleRangesSaving || scheduleRangeFields.disabled) return;
+  const ranges = {};
+  for (const key of scheduleRangeKeys) {
+    const start = $(`range-${key}-start`).value;
+    const end = $(`range-${key}-end`).value;
+    if (!start || !end || start >= end) {
+      $("schedule-ranges-status").textContent = "Waktu mulai harus lebih awal daripada waktu akhir.";
+      return;
+    }
+    ranges[key] = { start, end };
+  }
+  const applyPendingToday = $("schedule-apply-pending").checked;
+  if (applyPendingToday && !window.confirm("Sesuaikan jadwal pending hari ini yang berada di luar rentang baru? Task yang sudah mulai, retry, dan rentang yang sudah lewat tidak diubah.")) return;
+  scheduleRangesSaving = true;
+  scheduleRangeFields.disabled = true;
+  $("schedule-ranges-status").textContent = "Menyimpan...";
+  try {
+    const result = await updateScheduleRanges(ranges, applyPendingToday);
+    showScheduleRanges(result.ranges);
+    $("schedule-apply-pending").checked = false;
+    $("schedule-ranges-status").textContent = result.pending
+      ? `Tersimpan. ${result.pending.updated} jadwal diperbarui, ${result.pending.unchanged} sudah sesuai, ${result.pending.elapsed} melewati rentang. Tanpa restart.`
+      : "Tersimpan. Berlaku untuk jadwal baru, tanpa restart.";
+  } catch (error) {
+    $("schedule-ranges-status").textContent = readableError(error);
+  } finally {
+    scheduleRangesSaving = false;
+    scheduleRangeFields.disabled = false;
+  }
+});
 
 function showOperationalSettings(setting) {
   $("geo-radius-input").value = setting.geoRadiusMeters;

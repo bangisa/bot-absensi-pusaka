@@ -133,6 +133,17 @@ async function getOperationalSettings() {
   return request(`${API_BASE}/settings/operational`);
 }
 
+async function getScheduleRanges() {
+  return request(`${API_BASE}/settings/schedule-ranges`);
+}
+
+async function updateScheduleRanges(ranges, applyPendingToday) {
+  return request(`${API_BASE}/settings/schedule-ranges`, {
+    method: "PUT",
+    body: JSON.stringify({ ranges, applyPendingToday }),
+  });
+}
+
 async function updateOperationalSettings(value) {
   return request(`${API_BASE}/settings/operational`, {
     method: "PUT",
@@ -165,6 +176,8 @@ async function backupNow() {
 }
 
 export {
+  getScheduleRanges,
+  updateScheduleRanges,
   getApiErrorMessage,
   backupNow,
   updateUser,

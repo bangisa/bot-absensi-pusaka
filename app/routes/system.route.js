@@ -1,4 +1,7 @@
 import { Router } from "express";
+import db from "../../database/db.js";
+import { getScheduleRanges, saveScheduleRanges } from "../services/schedule-setting.service.js";
+import { reschedulePendingToday } from "../services/daily-schedule.service.js";
 import { executeBackup, getDatabaseBackupStatus, startDatabaseBackup, stopDatabaseBackup } from "../services/database-backup.service.js";
 import { getOperationalSettings, saveOperationalSettings } from "../services/operational-setting.service.js";
 import { getTimezoneSetting } from "../services/timezone-setting.service.js";
@@ -27,6 +30,33 @@ import {
 } from "../models/index.js";
 
 const router = Router();
+
+router.get("/settings/schedule-ranges", (req, res) => res.json(getScheduleRanges()));
+router.put("/settings/schedule-ranges", (req, res) => {
+  if (getLifecycleStatus().state !== "RUNNING" || getDatabaseBackupStatus().backupRunning ||
+      getDailyScheduleGeneratorStatus().generationRunning) {
+    return res.status(409).json({ error: "Tunggu generator, backup, atau penghentian aplikasi selesai." });
+  }
+  const body = req.body;
+  if (!body || Object.keys(body).length !== 2 || typeof body.applyPendingToday !== "boolean") {
+    return res.status(400).json({ error: "Pengaturan rentang jadwal tidak valid." });
+  }
+  try {
+    const result = db.transaction(() => {
+      const previous = getScheduleRanges();
+      const ranges = saveScheduleRanges(body.ranges);
+      const pending = body.applyPendingToday ? reschedulePendingToday() : null;
+      createAuditLog({ action: "settings.schedule_ranges_changed", actor: "admin",
+        target_type: "system_setting", target_id: "schedule_ranges",
+        metadata: { previous, current: ranges, applyPendingToday: body.applyPendingToday, pending } });
+      return { ranges, pending };
+    })();
+    return res.json(result);
+  } catch (error) {
+    if (error.code === "INVALID_SCHEDULE_RANGES") return res.status(400).json({ error: error.message });
+    throw error;
+  }
+});
 
 router.get("/settings/operational", (req, res) => res.json(getOperationalSettings()));
 router.put("/settings/operational", (req, res) => {

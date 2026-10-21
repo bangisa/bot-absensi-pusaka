@@ -8,6 +8,8 @@ import { findAllUsers } from "../models/user.model.js";
 import { canUseServiceDay } from "../models/user-service.model.js";
 import { checkNationalHoliday } from "./holiday.service.js";
 import { getZonedDate, getZonedDay, getZonedTime } from "../helpers/time.helper.js";
+import db from "../../database/db.js";
+import { getScheduleRanges } from "./schedule-setting.service.js";
 
 /**
  * Mengubah waktu HH:mm menjadi jumlah menit.
@@ -126,34 +128,44 @@ function isTimeAfter(time, targetTime) {
  * Menentukan rentang jadwal masuk.
  */
 function getMasukRange() {
-  return {
-    start: "06:03",
-    end: "06:33",
-  };
+  return getScheduleRanges().masuk;
 }
 
 /**
  * Menentukan rentang jadwal pulang berdasarkan hari.
  */
 function getPulangRange(dayName) {
-  if (dayName === "friday") {
-    return {
-      start: "12:18",
-      end: "12:48",
-    };
-  }
+  const ranges = getScheduleRanges();
+  return ranges[dayName === "friday" || dayName === "saturday" ? dayName : "pulang"];
+}
 
-  if (dayName === "saturday") {
-    return {
-      start: "15:03",
-      end: "15:33",
-    };
+function reschedulePendingToday(date = new Date()) {
+  const scheduleDate = getZonedDate(date);
+  const dayName = getZonedDay(date);
+  const currentTime = getZonedTime(date);
+  const result = { updated: 0, unchanged: 0, elapsed: 0 };
+  if (dayName === "sunday") return result;
+  const rows = db.prepare(`SELECT id, user_id, type, scheduled_time FROM daily_schedules
+    WHERE schedule_date = ? AND status = 'pending' AND COALESCE(attempt_count, 0) = 0
+      AND executed_at IS NULL AND next_retry_at IS NULL`).all(scheduleDate);
+  const update = db.prepare(`UPDATE daily_schedules SET scheduled_time = ?
+    WHERE id = ? AND status = 'pending' AND COALESCE(attempt_count, 0) = 0
+      AND executed_at IS NULL AND next_retry_at IS NULL`);
+  for (const row of shuffleUsers(rows)) {
+    if (!["masuk", "pulang"].includes(row.type)) continue;
+    const range = row.type === "masuk" ? getMasukRange() : getPulangRange(dayName);
+    const end = `${range.end}:00`;
+    if (currentTime >= end) { result.elapsed++; continue; }
+    if (row.scheduled_time >= `${range.start}:00` && row.scheduled_time <= end) {
+      result.unchanged++;
+      continue;
+    }
+    const start = secondsToTime(Math.max(timeToSeconds(range.start), timeToSeconds(currentTime) + 1));
+    const time = randomTimeBetweenExcludingMinutes(start, end,
+      getRecentScheduleMinuteKeys(row.user_id, row.type, scheduleDate));
+    result.updated += update.run(time, row.id).changes;
   }
-
-  return {
-    start: "14:33",
-    end: "15:03",
-  };
+  return result;
 }
 
 /**
@@ -279,6 +291,7 @@ const getJakartaDay = getZonedDay;
 const getJakartaTime = getZonedTime;
 
 export {
+  reschedulePendingToday,
   generateDailySchedules,
   getJakartaDate,
   getJakartaDay,

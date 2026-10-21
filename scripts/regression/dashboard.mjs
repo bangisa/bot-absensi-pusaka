@@ -597,17 +597,110 @@ try {
     assert.equal(probe.status,0,probe.stderr);
   });
   await test('DASHBOARD-two-column-card-layout',async()=>{
+    assert.deepEqual(await page.$$eval('.dashboard-category-title',els=>els.map(e=>e.textContent)),['Ringkasan Hari Ini','Operasional','Aktivitas Terbaru','Pengaturan']);
     for(const width of [320,390,600,760,900,1080,1280,1440]) {
       await page.setViewport({width,height:900});
       const state=await page.evaluate(()=>({grids:[...document.querySelectorAll('.dashboard-grid')].map(e=>({columns:getComputedStyle(e).gridTemplateColumns.split(' ').length,count:e.children.length})),summary:getComputedStyle(document.querySelector('.summary-grid')).gridTemplateColumns.split(' ').length,overflow:document.documentElement.scrollWidth>innerWidth+1}));
       assert.ok(state.grids.every(g=>g.columns===(width<=760?1:2)));
-      assert.ok(state.grids.some(g=>g.count===4));
+      assert.deepEqual(state.grids.map(g=>g.count),[2,2,5]);
       assert.equal(state.summary,width<=460?1:width<=760?2:width<=1080?3:6);assert.equal(state.overflow,false);
+      const form=await page.$eval('#schedule-ranges-form',e=>({overflow:e.scrollWidth>e.clientWidth,columns:getComputedStyle(e.querySelector('.schedule-ranges-grid')).gridTemplateColumns.split(' ').length}));
+      assert.equal(form.overflow,false);assert.equal(form.columns,width<=640?1:2);
       const cards=await page.$$eval('.summary-grid > *',els=>els.map(e=>({top:e.getBoundingClientRect().top,left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right,overflow:e.scrollWidth>e.clientWidth})));
       assert.equal(cards.length,6);assert.ok(cards.every(c=>!c.overflow));
       if(width>1080)assert.ok(cards.every(c=>Math.abs(c.top-cards[0].top)<1));
       await page.screenshot({path:path.join(sandbox,`dashboard-columns-${width}.png`),fullPage:true});
     }
+  });
+  await test('SCHEDULE-RANGES-auth-validation-CSRF-and-UI',async()=>{
+    assert.equal((await fetch(base+'/api/system/settings/schedule-ranges')).status,401);
+    assert.ok([401,403].includes((await fetch(base+'/api/system/settings/schedule-ranges',{method:'PUT',headers:{'Content-Type':'application/json'},body:'{}'})).status));
+    const result=await page.evaluate(async()=>{
+      const path='/api/system/settings/schedule-ranges';
+      const original=await(await fetch(path)).json();
+      const {csrfToken}=await(await fetch('/auth/csrf')).json();
+      const put=(body,csrf=true)=>fetch(path,{method:'PUT',headers:{'Content-Type':'application/json',...(csrf?{'X-CSRF-Token':csrfToken}:{})},body:JSON.stringify(body)});
+      const noCsrf=(await put({ranges:original,applyPendingToday:false},false)).status;
+      const invalid=[];
+      for(const value of [null,{},[],{...original,extra:{}},{...original,masuk:{start:'25:00',end:'26:00'}},{...original,masuk:{start:'06:17',end:'06:17'}},{...original,masuk:{start:'07:00',end:'06:00'}},{...original,masuk:{start:'6:00',end:'06:17'}}])invalid.push((await put({ranges:value,applyPendingToday:false})).status);
+      for(const body of [{ranges:original},{ranges:original,applyPendingToday:'true'},{ranges:original,applyPendingToday:false,extra:1}])invalid.push((await put(body)).status);
+      return {original,noCsrf,invalid};
+    });
+    assert.equal(result.noCsrf,403);assert.ok(result.invalid.every(status=>status===400));
+    await page.waitForFunction(()=>!document.getElementById('schedule-ranges-fields').disabled);
+    await page.$eval('#range-masuk-start',e=>{e.value='06:04';});
+    const saved=page.waitForResponse(r=>r.url().endsWith('/settings/schedule-ranges')&&r.request().method()==='PUT');
+    await page.click('#schedule-ranges-form button[type=submit]');
+    assert.equal((await saved).status(),200);
+    await page.waitForFunction(()=>document.getElementById('schedule-ranges-status').textContent.includes('Tersimpan'));
+    await page.click('#refresh-dashboard');await sleep(300);
+    assert.equal(await page.$eval('#range-masuk-start',e=>e.value),'06:04');
+    await page.reload();await page.waitForFunction(()=>!document.getElementById('schedule-ranges-fields').disabled);
+    assert.equal(await page.$eval('#range-masuk-start',e=>e.value),'06:04');
+    await page.click('#schedule-apply-pending');
+    page.once('dialog',d=>d.accept());
+    const applied=page.waitForResponse(r=>r.url().endsWith('/settings/schedule-ranges')&&r.request().method()==='PUT');
+    await page.click('#schedule-ranges-form button[type=submit]');
+    assert.equal((await applied).status(),200);
+    await page.waitForFunction(()=>document.getElementById('schedule-ranges-status').textContent.includes('jadwal diperbarui'));
+    assert.equal(await page.$eval('#schedule-apply-pending',e=>e.checked),false);
+    await page.evaluate(async original=>{
+      const {csrfToken}=await(await fetch('/auth/csrf')).json();
+      const r=await fetch('/api/system/settings/schedule-ranges',{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':csrfToken},body:JSON.stringify({ranges:original,applyPendingToday:false})});
+      if(!r.ok)throw new Error('Cannot restore test ranges');
+    },result.original);
+    const audit=await page.evaluate(async()=>(await(await fetch('/api/system/audit-logs')).json()));
+    assert.ok(audit.some(row=>row.action==='settings.schedule_ranges_changed'));
+    assert.deepEqual(browserErrors,[]);
+  });
+  await test('SCHEDULE-RANGES-generator-and-safe-pending',async()=>{
+    const probe=spawnSync(process.execPath,['--import','./scripts/regression/hooks.mjs','--input-type=module','-e',`
+      import assert from 'node:assert/strict';
+      const {default:db}=await import('./database/db.js');
+      const {insertUser}=await import('./app/models/user.model.js');
+      const {getScheduleRanges,saveScheduleRanges}=await import('./app/services/schedule-setting.service.js');
+      const {reschedulePendingToday,generateDailySchedules}=await import('./app/services/daily-schedule.service.js');
+      const {timeConfig}=await import('./app/config/time.config.js');
+      timeConfig.timeZone='Asia/Jakarta';
+      globalThis.fetch=async()=>({ok:true,json:async()=>({is_holiday:false})});
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        const id=Number(insertUser({username:'ranges-dummy-only',password:'dummy-only',nickname:'Ranges',latitude:0,longitude:0}).lastInsertRowid);
+        const original=getScheduleRanges();
+        const ranges={...original,masuk:{start:'06:02',end:'06:17'},pulang:{start:'14:32',end:'14:47'}};
+        saveScheduleRanges(ranges);assert.deepEqual(getScheduleRanges(),ranges);
+        const seed=(date,type,time,status='pending',attempt=0,retry=null)=>Number(db.prepare('INSERT INTO daily_schedules(user_id,schedule_date,type,scheduled_time,status,attempt_count,next_retry_at) VALUES(?,?,?,?,?,?,?)').run(id,date,type,time,status,attempt,retry).lastInsertRowid);
+        const read=id=>db.prepare('SELECT * FROM daily_schedules WHERE id=?').get(id);
+        const move=seed('2026-10-22','masuk','06:30:00');
+        const valid=seed('2026-10-22','pulang','14:40:00');
+        const friday=seed('2026-10-23','pulang','15:00:00');
+        const saturday=seed('2026-10-24','pulang','16:00:00');
+        const processing=seed('2026-10-21','masuk','06:30:00','processing',1);
+        const retry=seed('2026-10-21','pulang','15:00:00','pending',1,'2026-10-21 15:01:00');
+        const completed=seed('2026-10-20','masuk','06:30:00','success',1);
+        const elapsed=seed('2026-10-20','pulang','15:00:00');
+        const sunday=seed('2026-10-25','masuk','06:30:00');
+        const protectedIds=[processing,retry,completed,elapsed,sunday];
+        const before=protectedIds.map(read);
+        assert.ok(reschedulePendingToday(new Date('2026-10-22T06:10:00+07:00')).updated>=1);
+        assert.ok(read(move).scheduled_time>'06:10:00'&&read(move).scheduled_time<='06:17:00');
+        assert.equal(read(valid).scheduled_time,'14:40:00');
+        reschedulePendingToday(new Date('2026-10-23T05:00:00+07:00'));
+        assert.ok(read(friday).scheduled_time>='12:18:00'&&read(friday).scheduled_time<='12:48:00');
+        reschedulePendingToday(new Date('2026-10-24T05:00:00+07:00'));
+        assert.ok(read(saturday).scheduled_time>='15:02:00'&&read(saturday).scheduled_time<='15:17:00');
+        reschedulePendingToday(new Date('2026-10-21T05:00:00+07:00'));
+        reschedulePendingToday(new Date('2026-10-20T16:00:00+07:00'));
+        reschedulePendingToday(new Date('2026-10-25T05:00:00+07:00'));
+        assert.deepEqual(protectedIds.map(read),before);
+        saveScheduleRanges({...ranges,masuk:{start:'06:11',end:'06:12'}});
+        await generateDailySchedules(new Date('2026-10-26T05:00:00+07:00'));
+        const generated=db.prepare("SELECT scheduled_time FROM daily_schedules WHERE user_id=? AND schedule_date='2026-10-26' AND type='masuk'").get(id);
+        assert.ok(generated.scheduled_time>='06:11:00'&&generated.scheduled_time<='06:12:00');
+        assert.equal(db.pragma('integrity_check',{simple:true}),'ok');
+      } finally {db.exec('ROLLBACK');db.close();}
+    `],{cwd:sandbox,env,encoding:'utf8',timeout:20000});
+    assert.equal(probe.status,0,probe.stderr||probe.stdout);
   });
   await test('RESTART-waiting-poll-and-timeout',async()=>{
     const source=fs.readFileSync(path.join(root,'public/js/dashboard.js'),'utf8');

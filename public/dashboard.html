@@ -81,366 +81,416 @@
           </div>
         </section>
 
-        <section class="summary-grid" aria-label="Ringkasan jadwal hari ini">
-          <article class="metric-card metric-success">
-            <span>Success</span>
-            <strong id="today-success">0</strong>
-            <small>Jadwal selesai</small>
-          </article>
-          <article class="metric-card metric-pending">
-            <span>Pending</span>
-            <strong id="today-pending">0</strong>
-            <small>Menunggu eksekusi</small>
-          </article>
-          <article class="metric-card metric-processing">
-            <span>Processing</span>
-            <strong id="today-processing">0</strong>
-            <small>Sedang diproses</small>
-          </article>
-          <article class="metric-card metric-retry">
-            <span>Retry</span>
-            <strong id="today-retry">0</strong>
-            <small id="retry-next">Tidak ada retry</small>
-          </article>
-          <article class="metric-card metric-failed">
-            <span>Failed</span>
-            <strong id="today-failed">0</strong>
-            <small>Butuh perhatian</small>
-          </article>
-          <article class="metric-card metric-skipped">
-            <span>Skipped</span>
-            <strong id="today-skipped">0</strong>
-            <small>Tidak perlu diproses</small>
-          </article>
+        <section class="dashboard-category" aria-labelledby="category-summary">
+          <h2 id="category-summary" class="dashboard-category-title">Ringkasan Hari Ini</h2>
+          <section class="summary-grid" aria-label="Ringkasan jadwal hari ini">
+            <article class="metric-card metric-success">
+              <span>Success</span>
+              <strong id="today-success">0</strong>
+              <small>Jadwal selesai</small>
+            </article>
+            <article class="metric-card metric-pending">
+              <span>Pending</span>
+              <strong id="today-pending">0</strong>
+              <small>Menunggu eksekusi</small>
+            </article>
+            <article class="metric-card metric-processing">
+              <span>Processing</span>
+              <strong id="today-processing">0</strong>
+              <small>Sedang diproses</small>
+            </article>
+            <article class="metric-card metric-retry">
+              <span>Retry</span>
+              <strong id="today-retry">0</strong>
+              <small id="retry-next">Tidak ada retry</small>
+            </article>
+            <article class="metric-card metric-failed">
+              <span>Failed</span>
+              <strong id="today-failed">0</strong>
+              <small>Butuh perhatian</small>
+            </article>
+            <article class="metric-card metric-skipped">
+              <span>Skipped</span>
+              <strong id="today-skipped">0</strong>
+              <small>Tidak perlu diproses</small>
+            </article>
+          </section>
         </section>
 
-        <section class="dashboard-grid two-column">
-          <article class="ops-card scheduler-card">
-            <div class="ops-card-header">
-              <div>
-                <p class="eyebrow">Scheduler</p>
-                <h2>Automation Engine</h2>
-              </div>
-              <div id="scheduler-status" class="mini-status status-neutral">
-                STOPPED
-              </div>
-            </div>
-            <div class="ops-list">
-              <div>
-                <span>Scheduler</span>
-                <small id="scheduler-detail">Memuat...</small>
-              </div>
-              <div>
-                <span>Generator</span>
-                <small id="generator-status">-</small>
-              </div>
-              <div>
-                <span>Last tick</span>
-                <small id="scheduler-last-tick">-</small>
-              </div>
-              <div>
-                <span>Uptime aplikasi</span>
-                <small id="uptime-status">-</small>
-              </div>
-            </div>
-            <div class="button-group scheduler-actions-v2">
-              <button id="start-btn" class="btn primary" type="button">
-                Start Scheduler
-              </button>
-              <button id="stop-btn" class="btn danger" type="button" hidden>
-                Stop Scheduler
-              </button>
-            </div>
-          </article>
-
-          <article class="ops-card">
-            <div class="ops-card-header">
-              <div>
-                <p class="eyebrow">Execution</p>
-                <h2>Queue & Browser</h2>
-              </div>
-              <div id="execution-health" class="mini-status">-</div>
-            </div>
-            <div class="ops-list">
-              <div>
-                <span>Queue running</span>
-                <small id="queue-running">-</small>
-              </div>
-              <div>
-                <span>Queue pending</span>
-                <small id="queue-pending">-</small>
-              </div>
-              <div>
-                <span>Concurrency</span>
-                <small id="queue-capacity">-</small>
-              </div>
-              <div>
-                <span>Browser</span>
-                <small id="browser-status">-</small>
-              </div>
-              <div>
-                <span>Active context</span>
-                <small id="browser-contexts">-</small>
-              </div>
-              <div>
-                <span>Open pages</span>
-                <small id="browser-pages">-</small>
-              </div>
-            </div>
-            <div class="runtime-setting-box">
-              <div class="runtime-setting-head">
+        <section class="dashboard-category" aria-labelledby="category-operations">
+          <h2 id="category-operations" class="dashboard-category-title">Operasional</h2>
+          <div class="dashboard-grid two-column">
+            <article class="ops-card scheduler-card">
+              <div class="ops-card-header">
                 <div>
-                  <span class="runtime-setting-label">Max Concurrent Jobs</span>
-                  <small id="max-concurrent-source"
-                    >Default dari konfigurasi</small
-                  >
+                  <p class="eyebrow">Scheduler</p>
+                  <h2>Automation Engine</h2>
                 </div>
-                <div class="runtime-setting-controls">
-                  <select
-                    id="max-concurrent-input"
-                    aria-label="Max Concurrent Jobs"
-                  >
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                  </select>
+                <div id="scheduler-status" class="mini-status status-neutral">
+                  STOPPED
+                </div>
+              </div>
+              <div class="ops-list">
+                <div>
+                  <span>Scheduler</span>
+                  <small id="scheduler-detail">Memuat...</small>
+                </div>
+                <div>
+                  <span>Generator</span>
+                  <small id="generator-status">-</small>
+                </div>
+                <div>
+                  <span>Last tick</span>
+                  <small id="scheduler-last-tick">-</small>
+                </div>
+                <div>
+                  <span>Uptime aplikasi</span>
+                  <small id="uptime-status">-</small>
+                </div>
+              </div>
+              <div class="button-group scheduler-actions-v2">
+                <button id="start-btn" class="btn primary" type="button">
+                  Start Scheduler
+                </button>
+                <button id="stop-btn" class="btn danger" type="button" hidden>
+                  Stop Scheduler
+                </button>
+              </div>
+            </article>
+
+            <article class="ops-card">
+              <div class="ops-card-header">
+                <div>
+                  <p class="eyebrow">Execution</p>
+                  <h2>Queue & Browser</h2>
+                </div>
+                <div id="execution-health" class="mini-status">-</div>
+              </div>
+              <div class="ops-list">
+                <div>
+                  <span>Queue running</span>
+                  <small id="queue-running">-</small>
+                </div>
+                <div>
+                  <span>Queue pending</span>
+                  <small id="queue-pending">-</small>
+                </div>
+                <div>
+                  <span>Concurrency</span>
+                  <small id="queue-capacity">-</small>
+                </div>
+                <div>
+                  <span>Browser</span>
+                  <small id="browser-status">-</small>
+                </div>
+                <div>
+                  <span>Active context</span>
+                  <small id="browser-contexts">-</small>
+                </div>
+                <div>
+                  <span>Open pages</span>
+                  <small id="browser-pages">-</small>
+                </div>
+              </div>
+              <div class="runtime-setting-box">
+                <div class="runtime-setting-head">
+                  <div>
+                    <span class="runtime-setting-label">Max Concurrent Jobs</span>
+                    <small id="max-concurrent-source"
+                      >Default dari konfigurasi</small
+                    >
+                  </div>
+                  <div class="runtime-setting-controls">
+                    <select
+                      id="max-concurrent-input"
+                      aria-label="Max Concurrent Jobs"
+                    >
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                    </select>
+                    <button
+                      id="save-max-concurrent"
+                      class="btn primary"
+                      type="button"
+                    >
+                      Simpan
+                    </button>
+                  </div>
+                </div>
+                <p class="resource-warning">
+                  ⚠️ Nilai lebih tinggi menjalankan lebih banyak job/browser
+                  secara paralel dan membutuhkan resource CPU serta RAM yang lebih
+                  besar. Naikkan secara bertahap sesuai kapasitas server.
+                </p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="dashboard-category" aria-labelledby="category-activity">
+          <h2 id="category-activity" class="dashboard-category-title">Aktivitas Terbaru</h2>
+          <div class="dashboard-grid two-column">
+            <article class="ops-card">
+              <div class="ops-card-header">
+                <div>
+                  <p class="eyebrow">Automation</p>
+                  <h2>Recent Result</h2>
+                </div>
+                <a class="text-link" href="/logs.html">Lihat semua log</a>
+              </div>
+              <div class="result-grid">
+                <div class="result-item success-result">
+                  <span>Last success</span>
+                  <small id="last-success-type">-</small>
+                  <small id="last-success-at">Belum ada data</small>
+                </div>
+                <div class="result-item failed-result">
+                  <span>Last failure</span>
+                  <small id="last-failure-type">-</small>
+                  <small id="last-failure-at">Belum ada data</small>
+                </div>
+              </div>
+              <div class="recent-failure-strip">
+                <span>Total failure (hari ini)</span>
+                <small id="recent-failures">0</small>
+              </div>
+            </article>
+
+            <article class="ops-card">
+              <div class="ops-card-header">
+                <div>
+                  <p class="eyebrow">Audit</p>
+                  <h2>Recent Admin Activity</h2>
+                </div>
+                <button
+                  id="refresh-audit"
+                  class="btn ghost small-btn"
+                  type="button"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div id="audit-list" class="activity-list">
+                <p class="muted">Memuat aktivitas...</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="dashboard-category" aria-labelledby="category-settings">
+          <h2 id="category-settings" class="dashboard-category-title">Pengaturan</h2>
+          <div class="dashboard-grid two-column">
+            <article class="ops-card schedule-range-card">
+              <div class="ops-card-header">
+                <h2>Rentang Jadwal</h2>
+              </div>
+              <form id="schedule-ranges-form" class="dashboard-setting">
+                <fieldset id="schedule-ranges-fields" disabled>
+                  <div class="schedule-ranges-grid">
+                    <fieldset class="schedule-range-row">
+                      <legend>Masuk</legend>
+                      <label>Mulai<input id="range-masuk-start" type="time" required /></label>
+                      <label>Akhir<input id="range-masuk-end" type="time" required /></label>
+                    </fieldset>
+                    <fieldset class="schedule-range-row">
+                      <legend>Pulang Hari Biasa</legend>
+                      <label>Mulai<input id="range-pulang-start" type="time" required /></label>
+                      <label>Akhir<input id="range-pulang-end" type="time" required /></label>
+                    </fieldset>
+                    <fieldset class="schedule-range-row">
+                      <legend>Pulang Jumat</legend>
+                      <label>Mulai<input id="range-friday-start" type="time" required /></label>
+                      <label>Akhir<input id="range-friday-end" type="time" required /></label>
+                    </fieldset>
+                    <fieldset class="schedule-range-row">
+                      <legend>Pulang Sabtu</legend>
+                      <label>Mulai<input id="range-saturday-start" type="time" required /></label>
+                      <label>Akhir<input id="range-saturday-end" type="time" required /></label>
+                    </fieldset>
+                  </div>
+                  <label class="schedule-pending-option"><input id="schedule-apply-pending" type="checkbox" /> Terapkan juga pada jadwal pending hari ini</label>
+                  <div class="setting-actions">
+                    <button type="submit" class="btn primary">Simpan</button>
+                  </div>
+                </fieldset>
+                <small id="schedule-ranges-status" role="status">Memuat...</small>
+              </form>
+            </article>
+
+            <article class="ops-card">
+            <div class="ops-card-header">
+              <h2>Pengaturan Operasional</h2>
+            </div>
+            <form id="operational-settings-form" class="dashboard-setting runtime-setting-box">
+              <label for="geo-radius-input">Radius Geolokasi (meter)</label>
+              <input id="geo-radius-input" type="number" min="0" max="200" step="1" aria-describedby="geo-radius-limit" required />
+              <small id="geo-radius-limit">0-200 meter</small>
+              <label for="backup-retention-input">Jumlah Backup Disimpan</label>
+              <input id="backup-retention-input" type="number" min="1" max="8" step="1" aria-describedby="backup-retention-limit" required />
+              <small id="backup-retention-limit">1-8 file backup</small>
+              <label for="log-retention-input">Retensi Log Presensi</label>
+              <select id="log-retention-input" required>
+                <option value="3">3 Hari</option>
+                <option value="7">7 Hari</option>
+              </select>
+              <label for="backup-enabled-input">
+                <input id="backup-enabled-input" type="checkbox" /> Backup Otomatis Aktif
+              </label>
+              <div class="setting-actions">
+                <button id="save-operational" type="submit" class="btn primary" disabled>Simpan</button>
+              </div>
+              <small id="operational-setting-status" role="status">Memuat...</small>
+            </form>
+            </article>
+
+            <article class="ops-card compact-card holiday-card">
+              <div class="ops-card-header">
+                <div>
+                  <p class="eyebrow">Calendar</p>
+                  <h2>Holiday Provider</h2>
+                </div>
+                <div id="holiday-health" class="mini-status">-</div>
+              </div>
+              <div class="ops-list compact-list">
+                <div><span>Source</span><small id="holiday-source">-</small></div>
+                <div>
+                  <span>Available</span><small id="holiday-available">-</small>
+                </div>
+                <div>
+                  <span>Status Hari Ini</span><small id="holiday-status">-</small>
+                </div>
+                <div>
+                  <span>Keterangan</span><small id="holiday-name">-</small>
+                </div>
+              </div>
+              <form
+                id="holiday-settings-form"
+                class="dashboard-setting runtime-setting-box"
+              >
+                <label for="holiday-calendar-url">URL Kalender JSON</label>
+                <input
+                  id="holiday-calendar-url"
+                  type="url"
+                  required
+                  maxlength="512"
+                  placeholder="https://api.kemendesa.link/libur-nasional/api/holidays/latest"
+                />
+                <div class="setting-actions">
                   <button
-                    id="save-max-concurrent"
-                    class="btn primary"
+                    id="test-holiday-calendar"
                     type="button"
+                    class="btn secondary"
+                  >
+                    Tes Koneksi
+                  </button>
+                  <button
+                    id="save-holiday-calendar"
+                    type="submit"
+                    class="btn primary"
                   >
                     Simpan
                   </button>
+                  <button
+                    id="reset-holiday-calendar"
+                    type="button"
+                    class="btn secondary"
+                  >
+                    Gunakan API .env
+                  </button>
+                </div>
+                <small id="holiday-setting-status" role="status">-</small>
+              </form>
+            </article>
+
+            <article class="ops-card compact-card">
+              <div class="ops-card-header">
+                <div>
+                  <p class="eyebrow">Storage</p>
+                  <h2>Database Backup</h2>
+                </div>
+                <div id="backup-health" class="mini-status">-</div>
+              </div>
+              <div class="ops-list compact-list">
+                <div>
+                  <span>Terakhir</span>
+                  <small id="backup-last">-</small>
+                </div>
+                <div>
+                  <span>Durasi</span>
+                  <small id="backup-duration">-</small>
+                </div>
+                <div>
+                  <span>Retention</span>
+                  <small id="backup-retention">-</small>
+                </div>
+                <div>
+                  <span>Interval</span>
+                  <small>Mingguan (setiap 7 hari)</small>
+                </div>
+                <div>
+                  <span>Status</span>
+                  <small id="backup-running">-</small>
                 </div>
               </div>
-              <p class="resource-warning">
-                ⚠️ Nilai lebih tinggi menjalankan lebih banyak job/browser
-                secara paralel dan membutuhkan resource CPU serta RAM yang lebih
-                besar. Naikkan secara bertahap sesuai kapasitas server.
-              </p>
-            </div>
-          </article>
-        </section>
+              <div class="backup-actions">
+                <button
+                  id="backup-now"
+                  class="btn secondary btn-small"
+                  type="button"
+                >
+                  Backup
+                </button>
+                <small id="backup-now-status" role="status"></small>
+              </div>
+            </article>
 
-        <section class="dashboard-grid two-column">
-          <article class="ops-card compact-card">
-            <div class="ops-card-header">
-              <div>
-                <p class="eyebrow">Storage</p>
-                <h2>Database Backup</h2>
+            <article class="ops-card compact-card">
+              <div class="ops-card-header">
+                <div>
+                  <p class="eyebrow">System</p>
+                  <h2>Core Health</h2>
+                </div>
+                <div id="core-health" class="mini-status">-</div>
               </div>
-              <div id="backup-health" class="mini-status">-</div>
-            </div>
-            <div class="ops-list compact-list">
-              <div>
-                <span>Terakhir</span>
-                <small id="backup-last">-</small>
+              <div class="ops-list compact-list">
+                <div>
+                  <span>Database</span><small id="database-status">-</small>
+                </div>
+                <div><span>Vault</span><small id="vault-status">-</small></div>
+                <div>
+                  <span>Logging</span><small id="logging-status">-</small>
+                </div>
+                <div><span>Memory</span><small id="memory-status">-</small></div>
+                <div><span>Disk free</span><small id="disk-status">-</small></div>
+                <div>
+                  <span>Timezone</span><small id="timezone-status">-</small>
+                </div>
               </div>
-              <div>
-                <span>Durasi</span>
-                <small id="backup-duration">-</small>
-              </div>
-              <div>
-                <span>Retention</span>
-                <small id="backup-retention">-</small>
-              </div>
-              <div>
-                <span>Interval</span>
-                <small>Mingguan (setiap 7 hari)</small>
-              </div>
-              <div>
-                <span>Status</span>
-                <small id="backup-running">-</small>
-              </div>
-            </div>
-            <div class="backup-actions">
-              <button
-                id="backup-now"
-                class="btn secondary btn-small"
-                type="button"
+              <form
+                id="timezone-settings-form"
+                class="dashboard-setting runtime-setting-box"
               >
-                Backup
-              </button>
-              <small id="backup-now-status" role="status"></small>
-            </div>
-          </article>
-
-          <article class="ops-card compact-card holiday-card">
-            <div class="ops-card-header">
-              <div>
-                <p class="eyebrow">Calendar</p>
-                <h2>Holiday Provider</h2>
-              </div>
-              <div id="holiday-health" class="mini-status">-</div>
-            </div>
-            <div class="ops-list compact-list">
-              <div><span>Source</span><small id="holiday-source">-</small></div>
-              <div>
-                <span>Available</span><small id="holiday-available">-</small>
-              </div>
-              <div>
-                <span>Status Hari Ini</span><small id="holiday-status">-</small>
-              </div>
-              <div>
-                <span>Keterangan</span><small id="holiday-name">-</small>
-              </div>
-            </div>
-            <form
-              id="holiday-settings-form"
-              class="dashboard-setting runtime-setting-box"
-            >
-              <label for="holiday-calendar-url">URL Kalender JSON</label>
-              <input
-                id="holiday-calendar-url"
-                type="url"
-                required
-                maxlength="512"
-                placeholder="https://api.kemendesa.link/libur-nasional/api/holidays/latest"
-              />
-              <div class="setting-actions">
-                <button
-                  id="test-holiday-calendar"
-                  type="button"
-                  class="btn secondary"
-                >
-                  Tes Koneksi
+                <label for="timezone-input">Ubah Timezone</label>
+                <div class="setting-actions">
+                  <select id="timezone-input">
+                    <option value="Asia/Jakarta">WIB - Asia/Jakarta</option>
+                    <option value="Asia/Makassar">WITA - Asia/Makassar</option>
+                    <option value="Asia/Jayapura">WIT - Asia/Jayapura</option>
+                  </select>
+                  <button id="save-timezone" type="submit" class="btn primary">
+                    Simpan
+                  </button>
+                </div>
+                <small id="timezone-setting-status" role="status">-</small>
+                <button id="restart-timezone" type="button" class="btn secondary" hidden>
+                  Restart Aplikasi
                 </button>
-                <button
-                  id="save-holiday-calendar"
-                  type="submit"
-                  class="btn primary"
-                >
-                  Simpan
-                </button>
-                <button
-                  id="reset-holiday-calendar"
-                  type="button"
-                  class="btn secondary"
-                >
-                  Gunakan API .env
-                </button>
-              </div>
-              <small id="holiday-setting-status" role="status">-</small>
-            </form>
-          </article>
-
-          <article class="ops-card compact-card">
-            <div class="ops-card-header">
-              <div>
-                <p class="eyebrow">System</p>
-                <h2>Core Health</h2>
-              </div>
-              <div id="core-health" class="mini-status">-</div>
-            </div>
-            <div class="ops-list compact-list">
-              <div>
-                <span>Database</span><small id="database-status">-</small>
-              </div>
-              <div><span>Vault</span><small id="vault-status">-</small></div>
-              <div>
-                <span>Logging</span><small id="logging-status">-</small>
-              </div>
-              <div><span>Memory</span><small id="memory-status">-</small></div>
-              <div><span>Disk free</span><small id="disk-status">-</small></div>
-              <div>
-                <span>Timezone</span><small id="timezone-status">-</small>
-              </div>
-            </div>
-            <form
-              id="timezone-settings-form"
-              class="dashboard-setting runtime-setting-box"
-            >
-              <label for="timezone-input">Ubah Timezone</label>
-              <div class="setting-actions">
-                <select id="timezone-input">
-                  <option value="Asia/Jakarta">WIB - Asia/Jakarta</option>
-                  <option value="Asia/Makassar">WITA - Asia/Makassar</option>
-                  <option value="Asia/Jayapura">WIT - Asia/Jayapura</option>
-                </select>
-                <button id="save-timezone" type="submit" class="btn primary">
-                  Simpan
-                </button>
-              </div>
-              <small id="timezone-setting-status" role="status">-</small>
-              <button id="restart-timezone" type="button" class="btn secondary" hidden>
-                Restart Aplikasi
-              </button>
-            </form>
-          </article>
-          <article class="ops-card">
-          <div class="ops-card-header">
-            <h2>Pengaturan Operasional</h2>
+              </form>
+            </article>
           </div>
-          <form id="operational-settings-form" class="dashboard-setting runtime-setting-box">
-            <label for="geo-radius-input">Radius Geolokasi (meter)</label>
-            <input id="geo-radius-input" type="number" min="0" max="200" step="1" aria-describedby="geo-radius-limit" required />
-            <small id="geo-radius-limit">0-200 meter</small>
-            <label for="backup-retention-input">Jumlah Backup Disimpan</label>
-            <input id="backup-retention-input" type="number" min="1" max="8" step="1" aria-describedby="backup-retention-limit" required />
-            <small id="backup-retention-limit">1-8 file backup</small>
-            <label for="log-retention-input">Retensi Log Presensi</label>
-            <select id="log-retention-input" required>
-              <option value="3">3 Hari</option>
-              <option value="7">7 Hari</option>
-            </select>
-            <label for="backup-enabled-input">
-              <input id="backup-enabled-input" type="checkbox" /> Backup Otomatis Aktif
-            </label>
-            <div class="setting-actions">
-              <button id="save-operational" type="submit" class="btn primary" disabled>Simpan</button>
-            </div>
-            <small id="operational-setting-status" role="status">Memuat...</small>
-          </form>
-          </article>
-        </section>
-
-        <section class="dashboard-grid two-column lower-grid">
-          <article class="ops-card">
-            <div class="ops-card-header">
-              <div>
-                <p class="eyebrow">Automation</p>
-                <h2>Recent Result</h2>
-              </div>
-              <a class="text-link" href="/logs.html">Lihat semua log</a>
-            </div>
-            <div class="result-grid">
-              <div class="result-item success-result">
-                <span>Last success</span>
-                <small id="last-success-type">-</small>
-                <small id="last-success-at">Belum ada data</small>
-              </div>
-              <div class="result-item failed-result">
-                <span>Last failure</span>
-                <small id="last-failure-type">-</small>
-                <small id="last-failure-at">Belum ada data</small>
-              </div>
-            </div>
-            <div class="recent-failure-strip">
-              <span>Total failure (hari ini)</span>
-              <small id="recent-failures">0</small>
-            </div>
-          </article>
-
-          <article class="ops-card">
-            <div class="ops-card-header">
-              <div>
-                <p class="eyebrow">Audit</p>
-                <h2>Recent Admin Activity</h2>
-              </div>
-              <button
-                id="refresh-audit"
-                class="btn ghost small-btn"
-                type="button"
-              >
-                Refresh
-              </button>
-            </div>
-            <div id="audit-list" class="activity-list">
-              <p class="muted">Memuat aktivitas...</p>
-            </div>
-          </article>
         </section>
       </main>
       <footer class="page-footer">
